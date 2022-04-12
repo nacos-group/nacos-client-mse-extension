@@ -14,6 +14,7 @@ import com.aliyuncs.http.FormatType;
 import com.aliyuncs.http.MethodType;
 import com.aliyuncs.http.ProtocolType;
 import com.aliyuncs.kms.model.v20160120.DecryptRequest;
+import com.aliyuncs.kms.model.v20160120.EncryptRequest;
 import com.aliyuncs.kms.model.v20160120.GenerateDataKeyRequest;
 import com.aliyuncs.kms.model.v20160120.GenerateDataKeyResponse;
 import com.aliyuncs.profile.DefaultProfile;
@@ -154,7 +155,17 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             return AesUtils.encrypt((String) configRequest.getParameter(CONTENT), dataKey, "UTF-8");
         }
 
-        return encrypt(keyId, (IConfigRequest) configRequest.getParameter(CONTENT));
+        return encrypt(keyId, (String) configRequest.getParameter(CONTENT));
+    }
+    
+    private String encrypt(String keyId, String plainText) throws Exception {
+        final EncryptRequest encReq = new EncryptRequest();
+        encReq.setProtocol(ProtocolType.HTTPS);
+        encReq.setAcceptFormat(FormatType.JSON);
+        encReq.setMethod(MethodType.POST);
+        encReq.setKeyId(keyId);
+        encReq.setPlaintext(plainText);
+        return kmsClient.getAcsResponse(encReq).getCiphertextBlob();
     }
 
     private GenerateDataKeyResponse generateDataKey(String keyId, String keySpec) throws ClientException {
