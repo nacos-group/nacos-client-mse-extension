@@ -17,7 +17,7 @@
     <inceptionYear>2018</inceptionYear>
     <groupId>com.alibaba.nacos</groupId>
     <artifactId>nacos-client-mse-extension</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.2-beta</version>
     <packaging>jar</packaging>
 
     <name>Aliyun NACOS extension for MSE</name>
@@ -75,14 +75,15 @@
             </plugin>
         </plugins>
     </build>
-
+    
+    <!-- 这里的ID一定要在maven setting文件中存在于server下的ID -->
     <distributionManagement>
         <repository>
-            <id>releases</id>
+            <id>sona</id>
             <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
         </repository>
         <snapshotRepository>
-            <id>snapshots</id>
+            <id>sona</id>
             <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
         </snapshotRepository>
     </distributionManagement>
