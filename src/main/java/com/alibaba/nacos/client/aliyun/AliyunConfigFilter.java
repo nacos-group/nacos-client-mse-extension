@@ -8,6 +8,7 @@ import com.alibaba.nacos.api.config.filter.IConfigResponse;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.utils.StringUtils;
 import com.aliyuncs.DefaultAcsClient;
+import com.aliyuncs.auth.AlibabaCloudCredentialsProvider;
 import com.aliyuncs.auth.InstanceProfileCredentialsProvider;
 import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.http.FormatType;
@@ -73,11 +74,13 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         IClientProfile profile = null;
         if (!StringUtils.isBlank(ramRoleName)) {
             profile = DefaultProfile.getProfile(regionId);
-            profile.setCredentialsProvider(new InstanceProfileCredentialsProvider(ramRoleName));
+            AlibabaCloudCredentialsProvider alibabaCloudCredentialsProvider = new InstanceProfileCredentialsProvider(
+                    ramRoleName);
+            kmsClient = new DefaultAcsClient(profile, alibabaCloudCredentialsProvider);
         } else {
             profile = DefaultProfile.getProfile(regionId, accessKey, secretKey);
+            kmsClient = new DefaultAcsClient(profile);
         }
-        kmsClient = new DefaultAcsClient(profile);
     }
 
     @Override
