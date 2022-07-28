@@ -17,9 +17,28 @@
     <inceptionYear>2018</inceptionYear>
     <groupId>com.alibaba.nacos</groupId>
     <artifactId>nacos-client-mse-extension</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.2-beta</version>
     <packaging>jar</packaging>
-
+    
+    <developers>
+        <developer>
+            <id>realJackSun</id>
+            <name>Jack Sun</name>
+            <email>sunwardgo@gmail.com</email>
+            <url>https://github.com/realJackSun</url>
+            <roles>
+                <role>Developer</role>
+            </roles>
+        </developer>
+    </developers>
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    
     <name>Aliyun NACOS extension for MSE</name>
     <description>Aliyun NACOS extension for MSE</description>
     <url>http://nacos.io</url>
@@ -72,6 +91,52 @@
                     <source>8</source>
                     <target>8</target>
                 </configuration>
+            </plugin>
+    
+    
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+    
+    
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <doclint>none</doclint>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+    
+    
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
