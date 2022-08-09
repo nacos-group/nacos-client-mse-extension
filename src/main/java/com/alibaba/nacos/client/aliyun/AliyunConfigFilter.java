@@ -37,6 +37,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     private static final String CONTENT = "content";
 
     private static final String REGION_ID = "regionId";
+    
+    private static final String KMS_REGION_ID = "kms_region_id";
 
     private static final String KEY_ID = "keyId";
 
@@ -64,7 +66,11 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         String accessKey = properties.getProperty(PropertyKeyConst.ACCESS_KEY);
         String secretKey = properties.getProperty(PropertyKeyConst.SECRET_KEY);
         String kmsEndpoint = properties.getProperty(AliyunConst.KMS_ENDPOINT);
-
+    
+        if(StringUtils.isEmpty(regionId)){
+            regionId = System.getProperty(KMS_REGION_ID, System.getenv(KMS_REGION_ID));
+        }
+        
         if (System.getProperties().containsKey(AliyunConst.KMS_ENDPOINT)) {
             kmsEndpoint = System.getProperty(AliyunConst.KMS_ENDPOINT);
         }
