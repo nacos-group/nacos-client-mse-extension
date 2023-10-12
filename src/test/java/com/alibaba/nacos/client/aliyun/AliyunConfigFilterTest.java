@@ -9,11 +9,19 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 public class AliyunConfigFilterTest {
+    private static final String ENCRYPTED_DATA_KEY = "encryptedDataKey";
     public static Properties properties;
     public static final String dataId = "cipher-crypt";
+    public static final List<String> dataIdList = new ArrayList<String>(){{
+        add("cipher-crypt");
+        add("cipher-kms-aes-256-crypt");
+        add("cipher-kms-aes-128-crypt");
+    }};
 
     public static final String content = "crypt";
 
@@ -35,6 +43,11 @@ public class AliyunConfigFilterTest {
         properties.setProperty(AliyunConst.KMS_VERSION_KEY, AliyunConst.KmsVersion.Kmsv1.getValue());
         //ignore kmsEndpoint
         properties.setProperty("kmsEndpoint", "");
+        properties.setProperty("regionId", "cn-beijing");
+        properties.setProperty("kms_region_id", "cn-beijing");
+        properties.setProperty("accessKey", "LTAxxxx1E6");
+        properties.setProperty("secretKey", "kr6JxxxsD6");
+        properties.setProperty("keyId", "alias/acs/mse");
         executeConfigFilter();
     }
 
@@ -43,36 +56,43 @@ public class AliyunConfigFilterTest {
 //    public void testAliyunConfigFilterWithKmsV3() {
 //        properties.setProperty(AliyunConst.KMS_VERSION_KEY, AliyunConst.KmsVersion.Kmsv3.getValue());
 //        properties.setProperty("keyId", "alias/chasu");
+//        properties.setProperty("kmsEndpoint", "kst-bjxxxxxxxxxc.cryptoservice.kms.aliyuncs.com");
+//        properties.setProperty("kmsClientKeyFilePath", "/client_key.json");
+//        properties.setProperty("kmsPasswordKey", "19axxx213");
+//        properties.setProperty("kmsCaFilePath", "/ca.pem");
 //        executeConfigFilter();
 //    }
 
     private void executeConfigFilter() {
-        ConfigFilterChainManager configFilterChainManager = new ConfigFilterChainManager(properties);
-        AliyunConfigFilter aliyunConfigFilter = new AliyunConfigFilter();
-        configFilterChainManager.addFilter(aliyunConfigFilter);
+        for (String dataId : dataIdList) {
+            ConfigFilterChainManager configFilterChainManager = new ConfigFilterChainManager(properties);
+            AliyunConfigFilter aliyunConfigFilter = new AliyunConfigFilter();
+            configFilterChainManager.addFilter(aliyunConfigFilter);
 
-        ConfigRequest configRequest = new ConfigRequest();
-        configRequest.setGroup(group);
-        configRequest.setDataId(dataId);
-        configRequest.setContent(content);
-        String encryptedContent = null;
-        try {
-            configFilterChainManager.doFilter(configRequest, null);
-            encryptedContent = configRequest.getContent();
-            Assertions.assertFalse(StringUtils.isBlank(encryptedContent));
-        } catch (NacosException e) {
-            e.printStackTrace();
-        }
+            ConfigRequest configRequest = new ConfigRequest();
+            configRequest.setGroup(group);
+            configRequest.setDataId(dataId);
+            configRequest.setContent(content);
+            String encryptedContent = null;
+            try {
+                configFilterChainManager.doFilter(configRequest, null);
+                encryptedContent = configRequest.getContent();
+                Assertions.assertFalse(StringUtils.isBlank(encryptedContent));
+            } catch (NacosException e) {
+                e.printStackTrace();
+            }
 
-        ConfigResponse configResponse = new ConfigResponse();
-        configResponse.setGroup(group);
-        configResponse.setDataId(dataId);
-        configResponse.setContent(encryptedContent);
-        try {
-            configFilterChainManager.doFilter(null, configResponse);
-            Assertions.assertEquals(content, configResponse.getContent());
-        } catch (NacosException e) {
-            throw new RuntimeException(e);
+            ConfigResponse configResponse = new ConfigResponse();
+            configResponse.setGroup(group);
+            configResponse.setDataId(dataId);
+            configResponse.setEncryptedDataKey((String) configRequest.getParameter(ENCRYPTED_DATA_KEY));
+            configResponse.setContent(encryptedContent);
+            try {
+                configFilterChainManager.doFilter(null, configResponse);
+                Assertions.assertEquals(content, configResponse.getContent());
+            } catch (NacosException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

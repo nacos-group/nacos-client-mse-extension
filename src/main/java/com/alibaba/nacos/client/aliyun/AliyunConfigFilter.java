@@ -249,6 +249,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     }
 
     private String encrypt(String keyId, IConfigRequest configRequest) throws Exception {
+        if (StringUtils.isBlank(keyId)) {
+            throw new RuntimeException("keyId is not set up yet, unable to encrypt the configuration. " +
+                    "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+        }
         String dataId = (String) configRequest.getParameter(DATA_ID);
 
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
