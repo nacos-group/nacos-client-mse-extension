@@ -7,7 +7,9 @@ import com.alibaba.nacos.api.config.filter.IConfigRequest;
 import com.alibaba.nacos.api.config.filter.IConfigResponse;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.utils.StringUtils;
-import com.aliyuncs.DefaultAcsClient;
+import com.aliyun.dkms.gcs.openapi.models.Config;
+import com.aliyun.kms.KmsTransferAcsClient;
+import com.aliyuncs.IAcsClient;
 import com.aliyuncs.auth.AlibabaCloudCredentialsProvider;
 import com.aliyuncs.auth.InstanceProfileCredentialsProvider;
 import com.aliyuncs.exceptions.ClientException;
@@ -20,6 +22,8 @@ import com.aliyuncs.kms.model.v20160120.GenerateDataKeyRequest;
 import com.aliyuncs.kms.model.v20160120.GenerateDataKeyResponse;
 import com.aliyuncs.profile.DefaultProfile;
 import com.aliyuncs.profile.IClientProfile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 
@@ -29,6 +33,8 @@ import java.util.Properties;
  * @author luyanbo(RobberPhex)
  */
 public class AliyunConfigFilter extends AbstractConfigFilter {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AliyunConfigFilter.class);
 
     private static final String GROUP = "group";
 
@@ -46,6 +52,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
 
     private static final String CIPHER_PREFIX = "cipher-";
 
+    private static AliyunConst.KmsVersion kmsVersion;
+
     public static final String CIPHER_KMS_AES_128_PREFIX = "cipher-kms-aes-128-";
 
     public static final String CIPHER_KMS_AES_256_PREFIX = "cipher-kms-aes-256-";
@@ -54,39 +62,131 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
 
     public static final String KMS_KEY_SPEC_AES_256 = "AES_256";
 
-    private DefaultAcsClient kmsClient;
+    private IAcsClient kmsClient;
 
     private String keyId;
 
     @Override
     public void init(Properties properties) {
+        LOGGER.info("init ConfigFilter: {}, for more information, please check: {}",
+                this.getFilterName(), AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+        // get kms version, default using kms v1
+        String kv = properties.getProperty(AliyunConst.KMS_VERSION_KEY);
+        if (StringUtils.isBlank(kv)) {
+            LOGGER.warn("kms version is not set, using kms v1 version.");
+            kmsVersion = AliyunConst.KmsVersion.Kmsv1;
+        } else {
+            kmsVersion = AliyunConst.KmsVersion.fromValue(kv);
+            if (kmsVersion == AliyunConst.KmsVersion.UNKNOWN_VERSION) {
+                LOGGER.warn("kms version is not supported, using kms v1 version.");
+                kmsVersion = AliyunConst.KmsVersion.Kmsv1;
+            } else {
+                LOGGER.info("using kms version {}.", kmsVersion.getValue());
+            }
+        }
+
+        //keyId corresponding to the id/alias of KMS's secret key, using mseServiceKeyId by default
         keyId = properties.getProperty(KEY_ID);
+        if (StringUtils.isBlank(keyId)) {
+            if (kmsVersion == AliyunConst.KmsVersion.Kmsv1) {
+                keyId = AliyunConst.KMS_DEFAULT_KEY_ID_VALUE;
+                LOGGER.info("using default keyId {}.", keyId);
+            } else {
+                LOGGER.error("keyId is not set up yet, unable to encrypt the configuration. " +
+                        "For more information, please check: {}", AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+            }
+        }
+
+        try {
+            if (kmsVersion == AliyunConst.KmsVersion.Kmsv1) {
+                kmsClient = createKmsV1Client(properties);
+            } else if (kmsVersion == AliyunConst.KmsVersion.Kmsv3) {
+                kmsClient = createKmsV3Client(properties);
+            }
+        } catch (ClientException e) {
+            LOGGER.error("create kms client failed.");
+        }
+    }
+
+    /**
+    * init kms v1 client, accessing the KMS service through a shared gateway.
+    *
+    * @date 2023/9/19
+    * @description
+    * @param properties
+    * @return com.aliyuncs.IAcsClient
+    * @throws
+    */
+    private IAcsClient createKmsV1Client(Properties properties) {
         String regionId = properties.getProperty(REGION_ID);
-        String ramRoleName = properties.getProperty(PropertyKeyConst.RAM_ROLE_NAME);
-        String accessKey = properties.getProperty(PropertyKeyConst.ACCESS_KEY);
-        String secretKey = properties.getProperty(PropertyKeyConst.SECRET_KEY);
-        String kmsEndpoint = properties.getProperty(AliyunConst.KMS_ENDPOINT);
-    
-        if(StringUtils.isEmpty(regionId)){
+        if (StringUtils.isBlank(regionId)) {
             regionId = System.getProperty(KMS_REGION_ID, System.getenv(KMS_REGION_ID));
         }
-        
-        if (System.getProperties().containsKey(AliyunConst.KMS_ENDPOINT)) {
-            kmsEndpoint = System.getProperty(AliyunConst.KMS_ENDPOINT);
-        }
+        LOGGER.info("using regionId {}.", regionId);
+
+        String ramRoleName = properties.getProperty(PropertyKeyConst.RAM_ROLE_NAME);
+        LOGGER.info("using ramRoleName {}.", ramRoleName);
+
+        String accessKey = properties.getProperty(PropertyKeyConst.ACCESS_KEY);
+        LOGGER.info("using accessKey {}.", accessKey);
+
+        String secretKey = properties.getProperty(PropertyKeyConst.SECRET_KEY);
+
+        String kmsEndpoint = System.getProperties().containsKey(AliyunConst.KMS_ENDPOINT) ?
+                System.getProperty(AliyunConst.KMS_ENDPOINT) : properties.getProperty(AliyunConst.KMS_ENDPOINT);
         if (!StringUtils.isBlank(kmsEndpoint)) {
             DefaultProfile.addEndpoint(regionId, "kms", kmsEndpoint);
         }
+        LOGGER.info("using kmsEndpoint {}.", kmsEndpoint);
+
         IClientProfile profile = null;
+        IAcsClient kmsClient = null;
         if (!StringUtils.isBlank(ramRoleName)) {
             profile = DefaultProfile.getProfile(regionId);
             AlibabaCloudCredentialsProvider alibabaCloudCredentialsProvider = new InstanceProfileCredentialsProvider(
                     ramRoleName);
-            kmsClient = new DefaultAcsClient(profile, alibabaCloudCredentialsProvider);
+            kmsClient = new KmsTransferAcsClient(profile, alibabaCloudCredentialsProvider);
+            LOGGER.info("successfully create kms client by using RAM role.");
         } else {
             profile = DefaultProfile.getProfile(regionId, accessKey, secretKey);
-            kmsClient = new DefaultAcsClient(profile);
+            kmsClient = new KmsTransferAcsClient(profile);
+            LOGGER.info("successfully create kms client by using ak/sk.");
         }
+        return kmsClient;
+    }
+
+    /**
+    * init kms v3 client, accessing the KMS service through the KMS instance gateway.
+    *
+    * @date 2023/9/19
+    * @description
+    * @param properties
+    * @return 
+    * @throws 
+    */
+    private IAcsClient createKmsV3Client(Properties properties) throws ClientException {
+        Config config = new Config();
+        config.setProtocol("https");
+
+        String kmsClientKeyFilePath = properties.getProperty(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY);
+        LOGGER.info("using kmsClientKeyFilePath: {}.", kmsClientKeyFilePath);
+        config.setClientKeyFile(kmsClientKeyFilePath);
+        //config.setClientKeyContent(kmsClientKeyContent);
+
+        String kmsEndpoint = properties.getProperty(AliyunConst.KMS_ENDPOINT);
+        LOGGER.info("using kmsEndpoint: {}.", kmsEndpoint);
+        config.setEndpoint(kmsEndpoint);
+
+        String kmsPassword = properties.getProperty(AliyunConst.KMS_PASSWORD_KEY);
+        LOGGER.info("using kmsPassword: {}.", kmsPassword);
+        config.setPassword(kmsPassword);
+
+        String kmsCaFilePath = properties.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY);
+        LOGGER.info("using kmsCaFilePath: {}.", kmsCaFilePath);
+        config.setCaFilePath(kmsCaFilePath);
+        //config.setCa(caContent);
+
+        return new KmsTransferAcsClient(config);
     }
 
     @Override
@@ -149,6 +249,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     }
 
     private String encrypt(String keyId, IConfigRequest configRequest) throws Exception {
+        if (StringUtils.isBlank(keyId)) {
+            throw new RuntimeException("keyId is not set up yet, unable to encrypt the configuration. " +
+                    "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+        }
         String dataId = (String) configRequest.getParameter(DATA_ID);
 
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
