@@ -68,6 +68,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
 
     @Override
     public void init(Properties properties) {
+        LOGGER.info("init ConfigFilter: {}, for more information, please check: {}",
+                this.getFilterName(), AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
         // get kms version, default using kms v1
         String kv = properties.getProperty(AliyunConst.KMS_VERSION_KEY);
         if (StringUtils.isBlank(kv)) {
@@ -90,7 +92,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 keyId = AliyunConst.KMS_DEFAULT_KEY_ID_VALUE;
                 LOGGER.info("using default keyId {}.", keyId);
             } else {
-                LOGGER.warn("keyId is not set yet.");
+                LOGGER.error("keyId is not set up yet, unable to encrypt the configuration. " +
+                        "For more information, please check: {}", AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
             }
         }
 
@@ -143,9 +146,11 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             AlibabaCloudCredentialsProvider alibabaCloudCredentialsProvider = new InstanceProfileCredentialsProvider(
                     ramRoleName);
             kmsClient = new KmsTransferAcsClient(profile, alibabaCloudCredentialsProvider);
+            LOGGER.info("successfully create kms client by using RAM role.");
         } else {
             profile = DefaultProfile.getProfile(regionId, accessKey, secretKey);
             kmsClient = new KmsTransferAcsClient(profile);
+            LOGGER.info("successfully create kms client by using ak/sk.");
         }
         return kmsClient;
     }

@@ -41,7 +41,7 @@ public class AliyunConfigFilterTest {
     // must be running in vpc
 //    @Test
 //    public void testAliyunConfigFilterWithKmsV3() {
-//        properties.setProperty(AliyunConst.KMS_VERSION_KEY, AliyunConst.KmsVersion.Kmsv1.getValue());
+//        properties.setProperty(AliyunConst.KMS_VERSION_KEY, AliyunConst.KmsVersion.Kmsv3.getValue());
 //        properties.setProperty("keyId", "alias/chasu");
 //        executeConfigFilter();
 //    }
