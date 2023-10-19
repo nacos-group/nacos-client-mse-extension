@@ -211,7 +211,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 group = (String) response.getParameter(GROUP);
                 if (dataId.startsWith(CIPHER_PREFIX)) {
                     if (!StringUtils.isBlank((String)response.getParameter(CONTENT))) {
-                        response.putParameter("content", decrypt(response));
+                        response.putParameter(CONTENT, decrypt(response));
                     }
                 }
             }
@@ -226,13 +226,13 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     }
 
     private String decrypt(IConfigResponse response) throws Exception {
-        String dataId = (String) response.getParameter("dataId");
-        String content = (String) response.getParameter("content");
+        String dataId = (String) response.getParameter(DATA_ID);
+        String content = (String) response.getParameter(CONTENT);
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-            String encryptedDataKey = (String) response.getParameter("encryptedDataKey");
+            String encryptedDataKey = (String) response.getParameter(ENCRYPTED_DATA_KEY);
             if (!StringUtils.isBlank(encryptedDataKey)) {
                 String dataKey = decrypt(encryptedDataKey);
-                return AesUtils.decrypt((String) response.getParameter("content"), dataKey, "UTF-8");
+                return AesUtils.decrypt((String) response.getParameter(CONTENT), dataKey, "UTF-8");
             }
             return "";
         } else {
