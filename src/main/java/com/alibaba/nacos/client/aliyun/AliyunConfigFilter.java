@@ -199,7 +199,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 dataId = (String) request.getParameter(DATA_ID);
                 group = (String) request.getParameter(GROUP);
                 if (dataId.startsWith(CIPHER_PREFIX)) {
-                    if (request.getParameter(CONTENT) != null) {
+                    if (!StringUtils.isBlank((String)request.getParameter(CONTENT))) {
                         request.putParameter(CONTENT, encrypt(keyId, request));
                     }
                 }
@@ -207,14 +207,15 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 filterChain.doFilter(request, response);
             }
             if (response != null) {
-                dataId = (String) response.getParameter("dataId");
-                group = (String) response.getParameter("group");
+                dataId = (String) response.getParameter(DATA_ID);
+                group = (String) response.getParameter(GROUP);
                 if (dataId.startsWith(CIPHER_PREFIX)) {
-                    response.putParameter("content", decrypt(response));
+                    if (!StringUtils.isBlank((String)response.getParameter(CONTENT))) {
+                        response.putParameter("content", decrypt(response));
+                    }
                 }
             }
         } catch (ClientException e) {
-            e.printStackTrace();
             String message = String.format("KMS error, dataId: %s, groupId: %s", dataId, group);
             throw new NacosException(NacosException.HTTP_CLIENT_ERROR_CODE, message, e);
         } catch (Exception e) {
