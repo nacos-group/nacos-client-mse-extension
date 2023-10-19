@@ -178,7 +178,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         config.setEndpoint(kmsEndpoint);
 
         String kmsPassword = properties.getProperty(AliyunConst.KMS_PASSWORD_KEY);
-        LOGGER.info("using kmsPassword: {}.", kmsPassword);
+        LOGGER.info("using kmsPassword prefix: {}.", kmsPassword.substring(kmsPassword.length() / 8));
         config.setPassword(kmsPassword);
 
         String kmsCaFilePath = properties.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY);

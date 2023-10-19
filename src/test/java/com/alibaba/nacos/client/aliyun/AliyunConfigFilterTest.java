@@ -16,7 +16,6 @@ import java.util.Properties;
 public class AliyunConfigFilterTest {
     private static final String ENCRYPTED_DATA_KEY = "encryptedDataKey";
     public static Properties properties;
-    public static final String dataId = "cipher-crypt";
     public static final List<String> dataIdList = new ArrayList<String>(){{
         add("cipher-crypt");
         add("cipher-kms-aes-256-crypt");
