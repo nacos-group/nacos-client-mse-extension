@@ -21,8 +21,8 @@ public class AliyunConst {
     public static final String MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL = "https://help.aliyun.com/zh/mse/user-guide/create-and-use-encrypted-configurations?spm=a2c4g.11186623.0.0.55587becdOW3jf";
 
     public enum KmsVersion {
-        Kmsv1("v1"),
-        Kmsv3("v3"),
+        Kmsv1("v1.0"),
+        Kmsv3("v3.0"),
         UNKNOWN_VERSION("unknown version");
 
         private String value;

@@ -17,7 +17,7 @@
     <inceptionYear>2018</inceptionYear>
     <groupId>com.alibaba.nacos</groupId>
     <artifactId>nacos-client-mse-extension</artifactId>
-    <version>1.0.2-beta</version>
+    <version>1.0.3</version>
     <packaging>jar</packaging>
     
     <developers>
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>com.aliyun</groupId>
             <artifactId>aliyun-java-sdk-kms</artifactId>
-            <version>2.14.0</version>
+            <version>2.16.3</version>
         </dependency>
 
         <dependency>
