@@ -22,6 +22,7 @@ import com.aliyuncs.kms.model.v20160120.GenerateDataKeyRequest;
 import com.aliyuncs.kms.model.v20160120.GenerateDataKeyResponse;
 import com.aliyuncs.profile.DefaultProfile;
 import com.aliyuncs.profile.IClientProfile;
+import org.slf4j.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,6 +96,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 LOGGER.error("keyId is not set up yet, unable to encrypt the configuration. " +
                         "For more information, please check: {}", AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
             }
+        } else {
+            LOGGER.info("using keyId {}.", keyId);
         }
 
         try {
