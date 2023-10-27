@@ -280,7 +280,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             throw new RuntimeException("keyId is not set up yet, unable to encrypt the configuration. " +
                     "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
         }
-
+        protectKeyId(keyId);
         String dataId = (String) configRequest.getParameter(DATA_ID);
 
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
@@ -333,10 +333,12 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                                 DescribeKeyResponse describeKeyResponse = kmsClient.getAcsResponse(describeKeyRequest);
                                 if (describeKeyResponse.getKeyMetadata()!= null) {
                                     String arn = describeKeyResponse.getKeyMetadata().getArn();
+                                    LOGGER.info("set deletion protection for keyId[{}], arn[{}]", keyId, arn);
 
                                     SetDeletionProtectionRequest setDeletionProtectionRequest = new SetDeletionProtectionRequest();
                                     setDeletionProtectionRequest.setProtectedResourceArn(arn);
                                     setDeletionProtectionRequest.setEnableDeletionProtection(true);
+                                    setDeletionProtectionRequest.setDeletionProtectionDescription("key is used by nacos-client");
                                     try {
                                         kmsClient.getAcsResponse(setDeletionProtectionRequest);
                                     } catch (ClientException e) {
