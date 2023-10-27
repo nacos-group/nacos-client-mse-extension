@@ -76,6 +76,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
 
     private AsyncProcessor asyncProcessor;
 
+    public AliyunConfigFilter() {}
+
     @Override
     public void init(Properties properties) {
         LOGGER.info("init ConfigFilter: {}, for more information, please check: {}",
