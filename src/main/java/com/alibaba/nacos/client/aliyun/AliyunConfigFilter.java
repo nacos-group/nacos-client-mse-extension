@@ -16,17 +16,22 @@ import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.http.FormatType;
 import com.aliyuncs.http.MethodType;
 import com.aliyuncs.http.ProtocolType;
-import com.aliyuncs.kms.model.v20160120.DecryptRequest;
-import com.aliyuncs.kms.model.v20160120.EncryptRequest;
+import com.aliyuncs.kms.model.v20160120.DescribeKeyRequest;
+import com.aliyuncs.kms.model.v20160120.DescribeKeyResponse;
 import com.aliyuncs.kms.model.v20160120.GenerateDataKeyRequest;
 import com.aliyuncs.kms.model.v20160120.GenerateDataKeyResponse;
+import com.aliyuncs.kms.model.v20160120.DecryptRequest;
+import com.aliyuncs.kms.model.v20160120.EncryptRequest;
+import com.aliyuncs.kms.model.v20160120.SetDeletionProtectionRequest;
+import com.aliyuncs.kms.model.v20160120.SetDeletionProtectionResponse;
 import com.aliyuncs.profile.DefaultProfile;
 import com.aliyuncs.profile.IClientProfile;
-import org.slf4j.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * the IConfigFilter of Aliyun.
@@ -67,12 +72,17 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
 
     private String keyId;
 
+    private final Set<String> addedKeys = new HashSet<String>();
+
+    private AsyncProcessor asyncProcessor;
+
     @Override
     public void init(Properties properties) {
         LOGGER.info("init ConfigFilter: {}, for more information, please check: {}",
                 this.getFilterName(), AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
         // get kms version, default using kms v1
-        String kv = properties.getProperty(AliyunConst.KMS_VERSION_KEY);
+        String kv = properties.getProperty(AliyunConst.KMS_VERSION_KEY,
+                System.getProperty(AliyunConst.KMS_VERSION_KEY, System.getenv(AliyunConst.KMS_VERSION_KEY)));
         if (StringUtils.isBlank(kv)) {
             LOGGER.warn("kms version is not set, using kms v1 version.");
             kmsVersion = AliyunConst.KmsVersion.Kmsv1;
@@ -87,7 +97,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         }
 
         //keyId corresponding to the id/alias of KMS's secret key, using mseServiceKeyId by default
-        keyId = properties.getProperty(KEY_ID);
+        keyId = properties.getProperty(KEY_ID, System.getProperty(KEY_ID, System.getenv(KEY_ID)));
         if (StringUtils.isBlank(keyId)) {
             if (kmsVersion == AliyunConst.KmsVersion.Kmsv1) {
                 keyId = AliyunConst.KMS_DEFAULT_KEY_ID_VALUE;
@@ -109,6 +119,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         } catch (ClientException e) {
             LOGGER.error("create kms client failed.");
         }
+        asyncProcessor = new AsyncProcessor();
     }
 
     /**
@@ -121,22 +132,30 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     * @throws
     */
     private IAcsClient createKmsV1Client(Properties properties) {
-        String regionId = properties.getProperty(REGION_ID);
+        String regionId = properties.getProperty(REGION_ID, System.getProperty(REGION_ID, System.getenv(REGION_ID)));
+        String kmsRegionId = properties.getProperty(KMS_REGION_ID, System.getProperty(KMS_REGION_ID, System.getenv(KMS_REGION_ID)));
         if (StringUtils.isBlank(regionId)) {
-            regionId = System.getProperty(KMS_REGION_ID, System.getenv(KMS_REGION_ID));
+            regionId = kmsRegionId;
         }
         LOGGER.info("using regionId {}.", regionId);
+        if (StringUtils.isBlank(kmsRegionId)) {
+            kmsRegionId = regionId;
+        }
+        LOGGER.info("using kms regionId {}.", kmsRegionId);
 
-        String ramRoleName = properties.getProperty(PropertyKeyConst.RAM_ROLE_NAME);
+        String ramRoleName= properties.getProperty(PropertyKeyConst.RAM_ROLE_NAME,
+                System.getProperty(PropertyKeyConst.RAM_ROLE_NAME, System.getenv(PropertyKeyConst.RAM_ROLE_NAME)));
         LOGGER.info("using ramRoleName {}.", ramRoleName);
 
-        String accessKey = properties.getProperty(PropertyKeyConst.ACCESS_KEY);
+        String accessKey = properties.getProperty(PropertyKeyConst.ACCESS_KEY,
+                System.getProperty(PropertyKeyConst.ACCESS_KEY, System.getenv(PropertyKeyConst.ACCESS_KEY)));
         LOGGER.info("using accessKey {}.", accessKey);
 
-        String secretKey = properties.getProperty(PropertyKeyConst.SECRET_KEY);
+        String secretKey = properties.getProperty(PropertyKeyConst.SECRET_KEY,
+                System.getProperty(PropertyKeyConst.SECRET_KEY, System.getenv(PropertyKeyConst.SECRET_KEY)));
 
-        String kmsEndpoint = System.getProperties().containsKey(AliyunConst.KMS_ENDPOINT) ?
-                System.getProperty(AliyunConst.KMS_ENDPOINT) : properties.getProperty(AliyunConst.KMS_ENDPOINT);
+        String kmsEndpoint = properties.getProperty(AliyunConst.KMS_ENDPOINT,
+                System.getProperty(AliyunConst.KMS_ENDPOINT, System.getenv(AliyunConst.KMS_ENDPOINT)));
         if (!StringUtils.isBlank(kmsEndpoint)) {
             DefaultProfile.addEndpoint(regionId, "kms", kmsEndpoint);
         }
@@ -171,20 +190,24 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         Config config = new Config();
         config.setProtocol("https");
 
-        String kmsClientKeyFilePath = properties.getProperty(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY);
+        String kmsClientKeyFilePath = properties.getProperty(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY,
+                System.getProperty(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY, System.getenv(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY)));
         LOGGER.info("using kmsClientKeyFilePath: {}.", kmsClientKeyFilePath);
         config.setClientKeyFile(kmsClientKeyFilePath);
         //config.setClientKeyContent(kmsClientKeyContent);
 
-        String kmsEndpoint = properties.getProperty(AliyunConst.KMS_ENDPOINT);
+        String kmsEndpoint = properties.getProperty(AliyunConst.KMS_ENDPOINT,
+                System.getProperty(AliyunConst.KMS_ENDPOINT, System.getenv(AliyunConst.KMS_ENDPOINT)));
         LOGGER.info("using kmsEndpoint: {}.", kmsEndpoint);
         config.setEndpoint(kmsEndpoint);
 
-        String kmsPassword = properties.getProperty(AliyunConst.KMS_PASSWORD_KEY);
+        String kmsPassword = properties.getProperty(AliyunConst.KMS_PASSWORD_KEY,
+                System.getProperty(AliyunConst.KMS_PASSWORD_KEY, System.getenv(AliyunConst.KMS_PASSWORD_KEY)));
         LOGGER.info("using kmsPassword prefix: {}.", kmsPassword.substring(kmsPassword.length() / 8));
         config.setPassword(kmsPassword);
 
-        String kmsCaFilePath = properties.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY);
+        String kmsCaFilePath = properties.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY,
+                System.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY, System.getenv(AliyunConst.KMS_CA_FILE_PATH_KEY)));
         LOGGER.info("using kmsCaFilePath: {}.", kmsCaFilePath);
         config.setCaFilePath(kmsCaFilePath);
         //config.setCa(caContent);
@@ -257,6 +280,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             throw new RuntimeException("keyId is not set up yet, unable to encrypt the configuration. " +
                     "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
         }
+
         String dataId = (String) configRequest.getParameter(DATA_ID);
 
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
@@ -293,6 +317,49 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         generateDataKeyRequest.setKeyId(keyId);
         generateDataKeyRequest.setKeySpec(keySpec);
         return kmsClient.getAcsResponse(generateDataKeyRequest);
+    }
+
+    private void protectKeyId(String keyId) {
+        if (!addedKeys.contains(keyId)) {
+            synchronized (addedKeys) {
+                addedKeys.add(keyId);
+                asyncProcessor.addTack(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest();
+                            describeKeyRequest.setKeyId(keyId);
+                            try {
+                                DescribeKeyResponse describeKeyResponse = kmsClient.getAcsResponse(describeKeyRequest);
+                                if (describeKeyResponse.getKeyMetadata()!= null) {
+                                    String arn = describeKeyResponse.getKeyMetadata().getArn();
+
+                                    SetDeletionProtectionRequest setDeletionProtectionRequest = new SetDeletionProtectionRequest();
+                                    setDeletionProtectionRequest.setProtectedResourceArn(arn);
+                                    setDeletionProtectionRequest.setEnableDeletionProtection(true);
+                                    try {
+                                        kmsClient.getAcsResponse(setDeletionProtectionRequest);
+                                    } catch (ClientException e) {
+                                        LOGGER.error("set deletion protect failed, keyId: {}.", keyId);
+                                        throw e;
+                                    }
+                                } else {
+                                    addedKeys.remove(keyId);
+                                    LOGGER.warn("keyId meta is null, cannot set key protection");
+                                }
+                            } catch (ClientException e) {
+                                LOGGER.error("describe key failed, keyId: {}.", keyId);
+                                throw e;
+                            }
+                        } catch (Exception e) {
+                            addedKeys.remove(keyId);
+                            LOGGER.error("execute async task failed", e);
+                        }
+
+                    }
+                });
+            }
+        }
     }
 
     @Override
