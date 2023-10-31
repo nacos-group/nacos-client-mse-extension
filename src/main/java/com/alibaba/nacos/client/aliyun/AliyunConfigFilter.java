@@ -23,12 +23,17 @@ import com.aliyuncs.kms.model.v20160120.GenerateDataKeyResponse;
 import com.aliyuncs.kms.model.v20160120.DecryptRequest;
 import com.aliyuncs.kms.model.v20160120.EncryptRequest;
 import com.aliyuncs.kms.model.v20160120.SetDeletionProtectionRequest;
-import com.aliyuncs.kms.model.v20160120.SetDeletionProtectionResponse;
 import com.aliyuncs.profile.DefaultProfile;
 import com.aliyuncs.profile.IClientProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
@@ -76,8 +81,6 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
 
     private AsyncProcessor asyncProcessor;
 
-    public AliyunConfigFilter() {}
-
     @Override
     public void init(Properties properties) {
         LOGGER.info("init ConfigFilter: {}, for more information, please check: {}",
@@ -105,8 +108,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 keyId = AliyunConst.KMS_DEFAULT_KEY_ID_VALUE;
                 LOGGER.info("using default keyId {}.", keyId);
             } else {
-                LOGGER.error("keyId is not set up yet, unable to encrypt the configuration. " +
-                        "For more information, please check: {}", AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+                String errorMsg = String.format("keyId is not set up yet, unable to encrypt the configuration. " +
+                        "For more information, please check: %s", AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+                LOGGER.error(errorMsg);
+                return;
             }
         } else {
             LOGGER.info("using keyId {}.", keyId);
@@ -119,9 +124,15 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 kmsClient = createKmsV3Client(properties);
             }
         } catch (ClientException e) {
-            LOGGER.error("create kms client failed.");
+            LOGGER.error("kms init failed.", e);
+        } catch (Exception e) {
+            LOGGER.error("create kms client failed.", e);
         }
-        asyncProcessor = new AsyncProcessor();
+        try {
+            asyncProcessor = new AsyncProcessor();
+        } catch (Exception e) {
+            LOGGER.error("init async processor failed.", e);
+        }
     }
 
     /**
@@ -192,27 +203,67 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         Config config = new Config();
         config.setProtocol("https");
 
-        String kmsClientKeyFilePath = properties.getProperty(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY,
-                System.getProperty(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY, System.getenv(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY)));
-        LOGGER.info("using kmsClientKeyFilePath: {}.", kmsClientKeyFilePath);
-        config.setClientKeyFile(kmsClientKeyFilePath);
-        //config.setClientKeyContent(kmsClientKeyContent);
+        String kmsClientKeyContent = properties.getProperty(AliyunConst.KMS_CLIENT_KEY_CONTENT_KEY,
+                    System.getProperty(AliyunConst.KMS_CLIENT_KEY_CONTENT_KEY, System.getenv(AliyunConst.KMS_CLIENT_KEY_CONTENT_KEY)));
+        if (!StringUtils.isBlank(kmsClientKeyContent)) {
+            LOGGER.info("using {}: {}.", AliyunConst.KMS_CLIENT_KEY_CONTENT_KEY, kmsClientKeyContent);
+            config.setClientKeyContent(kmsClientKeyContent);
+        } else {
+            LOGGER.info("{} is empty, will read from file.", AliyunConst.KMS_CLIENT_KEY_CONTENT_KEY);
+            String kmsClientKeyFilePath = properties.getProperty(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY,
+                    System.getProperty(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY, System.getenv(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY)));
+            if (!StringUtils.isBlank(kmsClientKeyFilePath)) {
+                String s = readFileToString(kmsClientKeyFilePath);
+                if (!StringUtils.isBlank(s)) {
+                    LOGGER.info("using kmsClientKeyFilePath: {}.", kmsClientKeyFilePath);
+                    config.setClientKeyFile(kmsClientKeyFilePath);
+                } else {
+                    String errorMsg = "both config from kmsClientKeyContent and kmsClientKeyFilePath is empty";
+                    throw new RuntimeException(errorMsg);
+                }
+            }
+        }
 
         String kmsEndpoint = properties.getProperty(AliyunConst.KMS_ENDPOINT,
                 System.getProperty(AliyunConst.KMS_ENDPOINT, System.getenv(AliyunConst.KMS_ENDPOINT)));
-        LOGGER.info("using kmsEndpoint: {}.", kmsEndpoint);
-        config.setEndpoint(kmsEndpoint);
+        if (StringUtils.isBlank(kmsEndpoint)) {
+            String errorMsg = String.format("%s is empty", AliyunConst.KMS_ENDPOINT);
+            throw new RuntimeException(errorMsg);
+        } else {
+            LOGGER.info("using kmsEndpoint: {}.", kmsEndpoint);
+            config.setEndpoint(kmsEndpoint);
+        }
 
         String kmsPassword = properties.getProperty(AliyunConst.KMS_PASSWORD_KEY,
                 System.getProperty(AliyunConst.KMS_PASSWORD_KEY, System.getenv(AliyunConst.KMS_PASSWORD_KEY)));
-        LOGGER.info("using kmsPassword prefix: {}.", kmsPassword.substring(kmsPassword.length() / 8));
-        config.setPassword(kmsPassword);
+        if (StringUtils.isBlank(kmsPassword)) {
+            String errorMsg = String.format("%s is empty", AliyunConst.KMS_PASSWORD_KEY);
+            throw new RuntimeException(errorMsg);
+        } else {
+            LOGGER.info("using kmsPassword prefix: {}.", kmsPassword.substring(kmsPassword.length() / 8));
+            config.setPassword(kmsPassword);
+        }
 
-        String kmsCaFilePath = properties.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY,
-                System.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY, System.getenv(AliyunConst.KMS_CA_FILE_PATH_KEY)));
-        LOGGER.info("using kmsCaFilePath: {}.", kmsCaFilePath);
-        config.setCaFilePath(kmsCaFilePath);
-        //config.setCa(caContent);
+        String kmsCaFileContent = properties.getProperty(AliyunConst.KMS_CA_FILE_CONTENT,
+                System.getProperty(AliyunConst.KMS_CA_FILE_CONTENT, System.getenv(AliyunConst.KMS_CA_FILE_CONTENT)));
+        if (!StringUtils.isBlank(kmsCaFileContent)) {
+            LOGGER.info("using {}: {}.", AliyunConst.KMS_CA_FILE_CONTENT, kmsCaFileContent);
+            config.setCa(kmsCaFileContent);
+        } else {
+            LOGGER.info("{} is empty, will read from file.", AliyunConst.KMS_CA_FILE_CONTENT);
+            String kmsCaFilePath = properties.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY,
+                    System.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY, System.getenv(AliyunConst.KMS_CA_FILE_PATH_KEY)));
+            if (!StringUtils.isBlank(kmsCaFilePath)) {
+                String s = readFileToString(kmsCaFilePath);
+                if (!StringUtils.isBlank(s)) {
+                    LOGGER.info("using kmsCaFilePath: {}.", kmsCaFilePath);
+                    config.setCaFilePath(kmsCaFilePath);
+                } else {
+                    String errorMsg = "both config from kmsCaFileContent and kmsCaFilePath is empty";
+                    throw new RuntimeException(errorMsg);
+                }
+            }
+        }
 
         return new KmsTransferAcsClient(config);
     }
@@ -249,6 +300,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         } catch (Exception e) {
             NacosException ee = new NacosException();
             ee.setCauseThrowable(e);
+            ee.setErrMsg(e.getMessage());
             throw ee;
         }
     }
@@ -256,16 +308,28 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     private String decrypt(IConfigResponse response) throws Exception {
         String dataId = (String) response.getParameter(DATA_ID);
         String content = (String) response.getParameter(CONTENT);
+        String result;
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
             String encryptedDataKey = (String) response.getParameter(ENCRYPTED_DATA_KEY);
             if (!StringUtils.isBlank(encryptedDataKey)) {
                 String dataKey = decrypt(encryptedDataKey);
-                return AesUtils.decrypt((String) response.getParameter(CONTENT), dataKey, "UTF-8");
+                if (StringUtils.isBlank(dataKey)) {
+                    throw new RuntimeException("failed to decrypt encryptedDataKey with empty value");
+                }
+                result = AesUtils.decrypt((String) response.getParameter(CONTENT), dataKey, "UTF-8");
+                if (StringUtils.isBlank(result)) {
+                    throw new RuntimeException("failed to decrypt content with empty value");
+                }
+            } else {
+                throw new RuntimeException("encrypted failed encryptedDataKey is empty");
             }
-            return "";
         } else {
-            return decrypt(content);
+            result = decrypt(content);
+            if (StringUtils.isBlank(result)) {
+                throw new RuntimeException("failed to decrypt content with empty value");
+            }
         }
+        return result;
     }
 
     private String decrypt(String content) throws ClientException {
@@ -282,6 +346,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             throw new RuntimeException("keyId is not set up yet, unable to encrypt the configuration. " +
                     "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
         }
+        String result;
         protectKeyId(keyId);
         String dataId = (String) configRequest.getParameter(DATA_ID);
 
@@ -293,12 +358,21 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 keySpec = KMS_KEY_SPEC_AES_256;
             }
             GenerateDataKeyResponse generateDataKeyResponse = generateDataKey(keyId, keySpec);
-            configRequest.putParameter(ENCRYPTED_DATA_KEY, generateDataKeyResponse.getCiphertextBlob());
             String dataKey = generateDataKeyResponse.getPlaintext();
-            return AesUtils.encrypt((String) configRequest.getParameter(CONTENT), dataKey, "UTF-8");
+            if (StringUtils.isBlank(dataKey.trim())) {
+                throw new RuntimeException("get generateDataKey failed with empty content. " +
+                        "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+            }
+            configRequest.putParameter(ENCRYPTED_DATA_KEY, generateDataKeyResponse.getCiphertextBlob());
+            result = AesUtils.encrypt((String) configRequest.getParameter(CONTENT), dataKey, "UTF-8");
+        } else {
+            result = encrypt(keyId, (String) configRequest.getParameter(CONTENT));
         }
 
-        return encrypt(keyId, (String) configRequest.getParameter(CONTENT));
+        if (StringUtils.isBlank(result)) {
+            throw new RuntimeException("encrypt failed with empty result.");
+        }
+        return result;
     }
     
     private String encrypt(String keyId, String plainText) throws Exception {
@@ -366,6 +440,33 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         }
     }
 
+    private static String readFileToString(String filePath) {
+        File file = getFileByPath(filePath);
+        if (file == null || !file.exists()) {
+            return null;
+        }
+        try {
+            Path path = Paths.get(file.getAbsolutePath());
+            byte[] fileContent = Files.readAllBytes(path);
+            return new String(fileContent, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static File getFileByPath(String filePath) {
+        File file = new File(filePath);
+        if (!file.exists()) {
+            String path = AliyunConfigFilter.class.getClassLoader().getResource("").getPath();
+            if (!(file = new File(path + filePath)).exists()) {
+                path = Paths.get(filePath).toAbsolutePath().toString();
+                if (!(file = new File(path)).exists()) {
+                    return null;
+                }
+            }
+        }
+        return file;
+    }
     @Override
     public int getOrder() {
         return 0;

@@ -51,7 +51,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <nacos.version>1.4.2-SNAPSHOT</nacos.version>
+        <nacos.version>2.2.4</nacos.version>
     </properties>
 
     <dependencies>

@@ -14,9 +14,13 @@ public class AliyunConst {
 
     public static final String KMS_CLIENT_KEY_FILE_PATH_KEY = "kmsClientKeyFilePath";
 
+    public static final String KMS_CLIENT_KEY_CONTENT_KEY = "kmsClientKeyContent";
+
     public static final String KMS_PASSWORD_KEY = "kmsPasswordKey";
 
     public static final String KMS_CA_FILE_PATH_KEY = "kmsCaFilePath";
+
+    public static final String KMS_CA_FILE_CONTENT = "kmsCaFileContent";
 
     public static final String MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL = "https://help.aliyun.com/zh/mse/user-guide/create-and-use-encrypted-configurations?spm=a2c4g.11186623.0.0.55587becdOW3jf";
 

@@ -29,7 +29,7 @@ public class AsyncProcessor {
         this.queue = new ArrayBlockingQueue<Runnable>(queueSize);
         this.closed = new AtomicBoolean(false);
         this.name = name;
-        new InnerWorker(name).start();
+        (new InnerWorker(name)).start();
     }
 
     public void addTack(Runnable task) {
