@@ -162,7 +162,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
 
         if (StringUtils.isBlank(kmsRegionId) && StringUtils.isBlank(regionId)) {
             String errorMsg = "region is not set up yet";
-            LOGGER.warn(AliyunConst.formatHelpMessage(errorMsg));
+            LOGGER.error(AliyunConst.formatHelpMessage(errorMsg));
             localInitException = new RuntimeException(errorMsg);
             return null;
         }
