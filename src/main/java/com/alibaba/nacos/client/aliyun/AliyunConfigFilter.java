@@ -285,8 +285,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 errorMsg = "kmsCaFilePath is empty";
             }
             if (!StringUtils.isBlank(errorMsg)) {
-                localInitException = new RuntimeException(errorMsg);
-                return null;
+                LOGGER.warn(AliyunConst.formatHelpMessage(errorMsg));
             }
         }
 
