@@ -16,7 +16,13 @@ import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.http.FormatType;
 import com.aliyuncs.http.MethodType;
 import com.aliyuncs.http.ProtocolType;
-import com.aliyuncs.kms.model.v20160120.*;
+import com.aliyuncs.kms.model.v20160120.DescribeKeyRequest;
+import com.aliyuncs.kms.model.v20160120.DescribeKeyResponse;
+import com.aliyuncs.kms.model.v20160120.GenerateDataKeyRequest;
+import com.aliyuncs.kms.model.v20160120.GenerateDataKeyResponse;
+import com.aliyuncs.kms.model.v20160120.DecryptRequest;
+import com.aliyuncs.kms.model.v20160120.EncryptRequest;
+import com.aliyuncs.kms.model.v20160120.SetDeletionProtectionRequest;
 import com.aliyuncs.profile.DefaultProfile;
 import com.aliyuncs.profile.IClientProfile;
 import org.slf4j.Logger;
@@ -216,6 +222,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             LOGGER.info("using {}: {}.", AliyunConst.KMS_CLIENT_KEY_CONTENT_KEY, kmsClientKeyContent);
             config.setClientKeyContent(kmsClientKeyContent);
         } else {
+            String errorMsg = null;
             LOGGER.info("{} is empty, will read from file.", AliyunConst.KMS_CLIENT_KEY_CONTENT_KEY);
             String kmsClientKeyFilePath = properties.getProperty(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY,
                     System.getProperty(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY, System.getenv(AliyunConst.KMS_CLIENT_KEY_FILE_PATH_KEY)));
@@ -225,10 +232,14 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                     LOGGER.info("using kmsClientKeyFilePath: {}.", kmsClientKeyFilePath);
                     config.setClientKeyFile(kmsClientKeyFilePath);
                 } else {
-                    String errorMsg = "both config from kmsClientKeyContent and kmsClientKeyFilePath is empty";
-                    localInitException = new RuntimeException(errorMsg);
-                    return null;
+                    errorMsg = "both config from kmsClientKeyContent and kmsClientKeyFilePath is empty";
                 }
+            } else {
+                errorMsg = "kmsClientKeyFilePath is empty";
+            }
+            if (!StringUtils.isBlank(errorMsg)) {
+                localInitException = new RuntimeException(errorMsg);
+                return null;
             }
         }
 
@@ -260,6 +271,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             LOGGER.info("using {}: {}.", AliyunConst.KMS_CA_FILE_CONTENT, kmsCaFileContent);
             config.setCa(kmsCaFileContent);
         } else {
+            String errorMsg = null;
             LOGGER.info("{} is empty, will read from file.", AliyunConst.KMS_CA_FILE_CONTENT);
             String kmsCaFilePath = properties.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY,
                     System.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY, System.getenv(AliyunConst.KMS_CA_FILE_PATH_KEY)));
@@ -269,10 +281,14 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                     LOGGER.info("using kmsCaFilePath: {}.", kmsCaFilePath);
                     config.setCaFilePath(kmsCaFilePath);
                 } else {
-                    String errorMsg = "both config from kmsCaFileContent and kmsCaFilePath is empty";
-                    localInitException = new RuntimeException(errorMsg);
-                    return null;
+                    errorMsg = "both config from kmsCaFileContent and kmsCaFilePath is empty";
                 }
+            } else {
+                errorMsg = "kmsCaFilePath is empty";
+            }
+            if (!StringUtils.isBlank(errorMsg)) {
+                localInitException = new RuntimeException(errorMsg);
+                return null;
             }
         }
 
