@@ -24,6 +24,11 @@ public class AliyunConst {
 
     public static final String MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL = "https://help.aliyun.com/zh/mse/user-guide/create-and-use-encrypted-configurations?spm=a2c4g.11186623.0.0.55587becdOW3jf";
 
+    public static String formatHelpMessage(String errorMessage) {
+        return String.format("%s, for more information, please check: %s",
+                        errorMessage, AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+    }
+
     public enum KmsVersion {
         Kmsv1("v1.0"),
         Kmsv3("v3.0"),

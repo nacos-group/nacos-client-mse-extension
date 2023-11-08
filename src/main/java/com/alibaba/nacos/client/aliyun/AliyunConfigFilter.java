@@ -110,10 +110,9 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 keyId = AliyunConst.KMS_DEFAULT_KEY_ID_VALUE;
                 LOGGER.info("using default keyId {}.", keyId);
             } else {
-                String errorMsg = String.format("keyId is not set up yet, unable to encrypt the configuration. " +
-                        "For more information, please check: %s", AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
-                LOGGER.error(errorMsg);
+                String errorMsg = "keyId is not set up yet, unable to encrypt the configuration.";
                 localInitException = new RuntimeException(errorMsg);
+                LOGGER.error(AliyunConst.formatHelpMessage(errorMsg), localInitException);
                 return;
             }
         } else {
@@ -127,10 +126,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 kmsClient = createKmsV3Client(properties);
             }
         } catch (ClientException e) {
-            LOGGER.error("kms init failed.", e);
+            LOGGER.error(AliyunConst.formatHelpMessage("kms init failed."), e);
             localInitException = e;
         } catch (Exception e) {
-            LOGGER.error("create kms client failed.", e);
+            LOGGER.error(AliyunConst.formatHelpMessage("create kms client failed."), e);
             localInitException = e;
         }
         try {
@@ -162,9 +161,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         LOGGER.info("using kms regionId {}.", kmsRegionId);
 
         if (StringUtils.isBlank(kmsRegionId) && StringUtils.isBlank(regionId)) {
-            String errorMsg = String.format("region is not set up yet, unable to encrypt the configuration. " +
-                    "For more information, please check: %s", AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
-            LOGGER.error(errorMsg);
+            String errorMsg = "region is not set up yet";
+            LOGGER.warn(AliyunConst.formatHelpMessage(errorMsg));
             localInitException = new RuntimeException(errorMsg);
             return null;
         }
@@ -323,9 +321,9 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             }
         } catch (ClientException e) {
             String message = String.format("KMS error, dataId: %s, groupId: %s", dataId, group);
-            throw new NacosException(NacosException.HTTP_CLIENT_ERROR_CODE, message, e);
+            throw new NacosException(NacosException.HTTP_CLIENT_ERROR_CODE, AliyunConst.formatHelpMessage(message), e);
         } catch (Exception e) {
-            NacosException ee = new NacosException(NacosException.INVALID_PARAM, e.getMessage());
+            NacosException ee = new NacosException(NacosException.INVALID_PARAM, AliyunConst.formatHelpMessage(e.getMessage()));
             ee.setCauseThrowable(e);
             throw ee;
         }
