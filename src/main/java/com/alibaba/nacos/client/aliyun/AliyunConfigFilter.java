@@ -325,9 +325,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             String message = String.format("KMS error, dataId: %s, groupId: %s", dataId, group);
             throw new NacosException(NacosException.HTTP_CLIENT_ERROR_CODE, message, e);
         } catch (Exception e) {
-            NacosException ee = new NacosException();
+            NacosException ee = new NacosException(NacosException.INVALID_PARAM, e.getMessage());
             ee.setCauseThrowable(e);
-            ee.setErrMsg(e.getMessage());
             throw ee;
         }
     }
