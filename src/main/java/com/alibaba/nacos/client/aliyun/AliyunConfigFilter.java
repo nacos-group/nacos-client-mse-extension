@@ -16,13 +16,7 @@ import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.http.FormatType;
 import com.aliyuncs.http.MethodType;
 import com.aliyuncs.http.ProtocolType;
-import com.aliyuncs.kms.model.v20160120.DescribeKeyRequest;
-import com.aliyuncs.kms.model.v20160120.DescribeKeyResponse;
-import com.aliyuncs.kms.model.v20160120.GenerateDataKeyRequest;
-import com.aliyuncs.kms.model.v20160120.GenerateDataKeyResponse;
-import com.aliyuncs.kms.model.v20160120.DecryptRequest;
-import com.aliyuncs.kms.model.v20160120.EncryptRequest;
-import com.aliyuncs.kms.model.v20160120.SetDeletionProtectionRequest;
+import com.aliyuncs.kms.model.v20160120.*;
 import com.aliyuncs.profile.DefaultProfile;
 import com.aliyuncs.profile.IClientProfile;
 import org.slf4j.Logger;
@@ -81,6 +75,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
 
     private AsyncProcessor asyncProcessor;
 
+    private Exception localInitException;
+
     @Override
     public void init(Properties properties) {
         LOGGER.info("init ConfigFilter: {}, for more information, please check: {}",
@@ -111,6 +107,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 String errorMsg = String.format("keyId is not set up yet, unable to encrypt the configuration. " +
                         "For more information, please check: %s", AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
                 LOGGER.error(errorMsg);
+                localInitException = new RuntimeException(errorMsg);
                 return;
             }
         } else {
@@ -125,8 +122,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             }
         } catch (ClientException e) {
             LOGGER.error("kms init failed.", e);
+            localInitException = e;
         } catch (Exception e) {
             LOGGER.error("create kms client failed.", e);
+            localInitException = e;
         }
         try {
             asyncProcessor = new AsyncProcessor();
@@ -155,6 +154,14 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             kmsRegionId = regionId;
         }
         LOGGER.info("using kms regionId {}.", kmsRegionId);
+
+        if (StringUtils.isBlank(kmsRegionId) && StringUtils.isBlank(regionId)) {
+            String errorMsg = String.format("region is not set up yet, unable to encrypt the configuration. " +
+                    "For more information, please check: %s", AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+            LOGGER.error(errorMsg);
+            localInitException = new RuntimeException(errorMsg);
+            return null;
+        }
 
         String ramRoleName= properties.getProperty(PropertyKeyConst.RAM_ROLE_NAME,
                 System.getProperty(PropertyKeyConst.RAM_ROLE_NAME, System.getenv(PropertyKeyConst.RAM_ROLE_NAME)));
@@ -219,7 +226,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                     config.setClientKeyFile(kmsClientKeyFilePath);
                 } else {
                     String errorMsg = "both config from kmsClientKeyContent and kmsClientKeyFilePath is empty";
-                    throw new RuntimeException(errorMsg);
+                    localInitException = new RuntimeException(errorMsg);
+                    return null;
                 }
             }
         }
@@ -228,7 +236,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 System.getProperty(AliyunConst.KMS_ENDPOINT, System.getenv(AliyunConst.KMS_ENDPOINT)));
         if (StringUtils.isBlank(kmsEndpoint)) {
             String errorMsg = String.format("%s is empty", AliyunConst.KMS_ENDPOINT);
-            throw new RuntimeException(errorMsg);
+            localInitException = new RuntimeException(errorMsg);
+            return null;
         } else {
             LOGGER.info("using kmsEndpoint: {}.", kmsEndpoint);
             config.setEndpoint(kmsEndpoint);
@@ -238,7 +247,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 System.getProperty(AliyunConst.KMS_PASSWORD_KEY, System.getenv(AliyunConst.KMS_PASSWORD_KEY)));
         if (StringUtils.isBlank(kmsPassword)) {
             String errorMsg = String.format("%s is empty", AliyunConst.KMS_PASSWORD_KEY);
-            throw new RuntimeException(errorMsg);
+            localInitException = new RuntimeException(errorMsg);
+            return null;
         } else {
             LOGGER.info("using kmsPassword prefix: {}.", kmsPassword.substring(kmsPassword.length() / 8));
             config.setPassword(kmsPassword);
@@ -260,7 +270,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                     config.setCaFilePath(kmsCaFilePath);
                 } else {
                     String errorMsg = "both config from kmsCaFileContent and kmsCaFilePath is empty";
-                    throw new RuntimeException(errorMsg);
+                    localInitException = new RuntimeException(errorMsg);
+                    return null;
                 }
             }
         }
@@ -332,10 +343,14 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         return result;
     }
 
-    private String decrypt(String content) throws ClientException {
+    private String decrypt(String content) throws Exception {
         if (kmsClient == null) {
-            throw new RuntimeException("kms client isn't initialized. " +
-                    "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+            if (localInitException != null) {
+                throw localInitException;
+            } else {
+                throw new RuntimeException("kms client isn't initialized. " +
+                        "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+            }
         }
         final DecryptRequest decReq = new DecryptRequest();
         decReq.setSysProtocol(ProtocolType.HTTPS);
@@ -347,8 +362,12 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
 
     private String encrypt(String keyId, IConfigRequest configRequest) throws Exception {
         if (kmsClient == null) {
-            throw new RuntimeException("kms client isn't initialized. " +
-                    "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+            if (localInitException != null) {
+                throw localInitException;
+            } else {
+                throw new RuntimeException("kms client isn't initialized. " +
+                        "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+            }
         }
         if (StringUtils.isBlank(keyId)) {
             throw new RuntimeException("keyId is not set up yet, unable to encrypt the configuration. " +
