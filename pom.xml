@@ -58,7 +58,7 @@
         <dependency>
             <groupId>com.aliyun</groupId>
             <artifactId>aliyun-java-sdk-core</artifactId>
-            <version>4.5.20</version>
+            <version>4.5.17</version>
         </dependency>
 
         <dependency>
@@ -70,6 +70,12 @@
         <dependency>
             <groupId>com.aliyun.kms</groupId>
             <artifactId>kms-transfer-client</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.aliyun</groupId>
+                    <artifactId>aliyun-java-sdk-kms</artifactId>
+                </exclusion>
+            </exclusions>
             <version>0.1.0</version>
         </dependency>
 
@@ -77,6 +83,7 @@
             <groupId>com.alibaba.nacos</groupId>
             <artifactId>nacos-api</artifactId>
             <version>${nacos.version}</version>
+            <optional>true</optional>
         </dependency>
 
         <dependency>

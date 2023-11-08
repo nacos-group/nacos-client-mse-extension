@@ -333,6 +333,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     }
 
     private String decrypt(String content) throws ClientException {
+        if (kmsClient == null) {
+            throw new RuntimeException("kms client isn't initialized. " +
+                    "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+        }
         final DecryptRequest decReq = new DecryptRequest();
         decReq.setSysProtocol(ProtocolType.HTTPS);
         decReq.setSysMethod(MethodType.POST);
@@ -342,6 +346,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     }
 
     private String encrypt(String keyId, IConfigRequest configRequest) throws Exception {
+        if (kmsClient == null) {
+            throw new RuntimeException("kms client isn't initialized. " +
+                    "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+        }
         if (StringUtils.isBlank(keyId)) {
             throw new RuntimeException("keyId is not set up yet, unable to encrypt the configuration. " +
                     "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
@@ -375,7 +383,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         return result;
     }
     
-    private String encrypt(String keyId, String plainText) throws Exception {
+    public String encrypt(String keyId, String plainText) throws Exception {
         final EncryptRequest encReq = new EncryptRequest();
         encReq.setProtocol(ProtocolType.HTTPS);
         encReq.setAcceptFormat(FormatType.JSON);
@@ -385,7 +393,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         return kmsClient.getAcsResponse(encReq).getCiphertextBlob();
     }
 
-    private GenerateDataKeyResponse generateDataKey(String keyId, String keySpec) throws ClientException {
+    public GenerateDataKeyResponse generateDataKey(String keyId, String keySpec) throws ClientException {
         GenerateDataKeyRequest generateDataKeyRequest = new GenerateDataKeyRequest();
 
         generateDataKeyRequest.setAcceptFormat(FormatType.JSON);
@@ -403,6 +411,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                     @Override
                     public void run() {
                         try {
+                            if (kmsClient == null) {
+                                LOGGER.error("kms client hasn't initiated.");
+                                return;
+                            }
                             DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest();
                             describeKeyRequest.setKeyId(keyId);
                             try {
@@ -469,7 +481,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     }
     @Override
     public int getOrder() {
-        return 0;
+        return 1;
     }
 
     @Override
