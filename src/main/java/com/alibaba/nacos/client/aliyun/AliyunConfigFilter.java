@@ -14,6 +14,7 @@ import com.aliyuncs.auth.AlibabaCloudCredentialsProvider;
 import com.aliyuncs.auth.InstanceProfileCredentialsProvider;
 import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.http.FormatType;
+import com.aliyuncs.http.HttpClientConfig;
 import com.aliyuncs.http.MethodType;
 import com.aliyuncs.http.ProtocolType;
 import com.aliyuncs.kms.model.v20160120.DescribeKeyRequest;
@@ -213,6 +214,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     private IAcsClient createKmsV3Client(Properties properties) throws ClientException {
         Config config = new Config();
         config.setProtocol("https");
+        IClientProfile profile = null;
 
         String kmsClientKeyContent = properties.getProperty(AliyunConst.KMS_CLIENT_KEY_CONTENT_KEY,
                     System.getProperty(AliyunConst.KMS_CLIENT_KEY_CONTENT_KEY, System.getenv(AliyunConst.KMS_CLIENT_KEY_CONTENT_KEY)));
@@ -274,22 +276,24 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             String kmsCaFilePath = properties.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY,
                     System.getProperty(AliyunConst.KMS_CA_FILE_PATH_KEY, System.getenv(AliyunConst.KMS_CA_FILE_PATH_KEY)));
             if (!StringUtils.isBlank(kmsCaFilePath)) {
-                String s = readFileToString(kmsCaFilePath);
-                if (!StringUtils.isBlank(s)) {
-                    LOGGER.info("using kmsCaFilePath: {}.", kmsCaFilePath);
-                    config.setCaFilePath(kmsCaFilePath);
-                } else {
-                    errorMsg = "both config from kmsCaFileContent and kmsCaFilePath is empty";
-                }
+                config.setCaFilePath(kmsCaFilePath);
             } else {
                 errorMsg = "kmsCaFilePath is empty";
+                config.setCaFilePath(null);
             }
             if (!StringUtils.isBlank(errorMsg)) {
                 LOGGER.warn(AliyunConst.formatHelpMessage(errorMsg));
+                profile = DefaultProfile.getProfile(config.getRegionId(), "ak", "sk", "sts");
+                HttpClientConfig httpClientConfig = HttpClientConfig.getDefault();
+                httpClientConfig.setIgnoreSSLCerts(true);
+                profile.setHttpClientConfig(httpClientConfig);
             }
         }
 
-        return new KmsTransferAcsClient(config);
+        if (profile == null) {
+            return new KmsTransferAcsClient(config);
+        }
+        return new KmsTransferAcsClient(profile, config);
     }
 
     @Override
@@ -319,11 +323,14 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 }
             }
         } catch (ClientException e) {
-            String message = String.format("KMS error, dataId: %s, groupId: %s", dataId, group);
+            String message = String.format("KMS message:[%s], error message:[%s], dataId: %s, groupId: %s", e.getMessage(), e.getErrMsg(), dataId, group);
             throw new NacosException(NacosException.HTTP_CLIENT_ERROR_CODE, AliyunConst.formatHelpMessage(message), e);
         } catch (Exception e) {
-            NacosException ee = new NacosException(NacosException.INVALID_PARAM, AliyunConst.formatHelpMessage(e.getMessage()));
-            ee.setCauseThrowable(e);
+            StringBuilder stringBuilder = new StringBuilder();
+            for (StackTraceElement ste : e.getStackTrace()) {
+                stringBuilder.append(ste.toString()).append("\n");
+            }
+            NacosException ee = new NacosException(NacosException.INVALID_PARAM, AliyunConst.formatHelpMessage(stringBuilder.toString()), e);
             throw ee;
         }
     }
