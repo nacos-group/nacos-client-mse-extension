@@ -11,6 +11,12 @@ public class AliyunConst {
     public static final String KMS_VERSION_KEY = "kmsVersion";
 
     public static final String KMS_DEFAULT_KEY_ID_VALUE = "alias/acs/mse";
+    
+    public static final String REGION_ID = "regionId";
+    
+    public static final String KMS_REGION_ID = "kms_region_id";
+    
+    public static final String KEY_ID = "keyId";
 
     public static final String KMS_CLIENT_KEY_FILE_PATH_KEY = "kmsClientKeyFilePath";
 

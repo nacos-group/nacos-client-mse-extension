@@ -39,6 +39,10 @@ import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
 
+import static com.alibaba.nacos.client.aliyun.AliyunConst.KEY_ID;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.KMS_REGION_ID;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.REGION_ID;
+
 /**
  * the IConfigFilter of Aliyun.
  *
@@ -53,12 +57,6 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     private static final String DATA_ID = "dataId";
 
     private static final String CONTENT = "content";
-
-    private static final String REGION_ID = "regionId";
-    
-    private static final String KMS_REGION_ID = "kms_region_id";
-
-    private static final String KEY_ID = "keyId";
 
     private static final String ENCRYPTED_DATA_KEY = "encryptedDataKey";
 
