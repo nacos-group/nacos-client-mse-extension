@@ -51,6 +51,7 @@ public class KmsV3Sample {
             boolean b = configService.publishConfig(dataId, group, content);
             if (!b) {
                 System.out.println("publish config: dataId=" + dataId + ",publishConfig failed");
+                continue;
             } else {
                 System.out.println("publish config: dataId=" + dataId + ",publishConfig success");
                 try {

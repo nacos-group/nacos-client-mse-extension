@@ -355,7 +355,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         String dataId = (String) response.getParameter(DATA_ID);
         String group = (String) response.getParameter(GROUP);
         String content = (String) response.getParameter(CONTENT);
-        String encryptedDataKey = null;
+        String encryptedDataKey = (String) response.getParameter(ENCRYPTED_DATA_KEY);
         
         //judge if using local cache or not
         if (this.isUseLocalCache() && this.getKmsLocalCache() != null) {
@@ -363,15 +363,15 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             if (localCacheItem != null) {
                 if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
                     if (localCacheItem.getEncryptedDataKey()!= null
-                            && localCacheItem.getEncryptedDataKey().equals((String) response.getParameter(ENCRYPTED_DATA_KEY))
+                            && localCacheItem.getEncryptedDataKey().equals(encryptedDataKey)
                             && localCacheItem.getEncryptedContent() != null
-                            && localCacheItem.getEncryptedContent().equals((String) response.getParameter(CONTENT))
+                            && localCacheItem.getEncryptedContent().equals(content)
                             && localCacheItem.getPlainContent() != null) {
                         return localCacheItem.getPlainContent();
                     }
                 } else if (dataId.startsWith(CIPHER_PREFIX)) {
                     if (localCacheItem.getEncryptedContent() != null
-                            && localCacheItem.getEncryptedContent().equals((String) response.getParameter(CONTENT))
+                            && localCacheItem.getEncryptedContent().equals(content)
                             && localCacheItem.getPlainContent() != null) {
                         return localCacheItem.getPlainContent();
                     }
@@ -382,7 +382,6 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         //local cache unready or useless
         String result;
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-            encryptedDataKey = (String) response.getParameter(ENCRYPTED_DATA_KEY);
             if (!StringUtils.isBlank(encryptedDataKey)) {
                 String dataKey = decrypt(encryptedDataKey);
                 if (StringUtils.isBlank(dataKey)) {
