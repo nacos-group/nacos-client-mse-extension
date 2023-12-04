@@ -62,7 +62,7 @@ public class AsyncProcessor {
                     task.run();
                     long duration = System.currentTimeMillis();
                     LOGGER.info("runner[{}] executed task {} cost {} ms", getName(), task, duration - begin);
-                } catch (InterruptedException e) {
+                } catch (Exception e) {
                     LOGGER.error(e.toString(), e);
                 }
             }

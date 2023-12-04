@@ -64,8 +64,6 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
 
     public static final String CIPHER_PREFIX = "cipher-";
 
-    private static AliyunConst.KmsVersion kmsVersion;
-
     public static final String CIPHER_KMS_AES_128_PREFIX = "cipher-kms-aes-128-";
 
     public static final String CIPHER_KMS_AES_256_PREFIX = "cipher-kms-aes-256-";
@@ -79,6 +77,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     public static final int defaultRetryIntervalMilliseconds = 2 * 100;
     
     public static final int defaultTimeoutMilliseconds = 3 * 1000;
+    
+    private AliyunConst.KmsVersion kmsVersion;
     
     private IAcsClient kmsClient;
 
