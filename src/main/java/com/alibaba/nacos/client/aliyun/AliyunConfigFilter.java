@@ -17,12 +17,12 @@ import com.aliyuncs.http.FormatType;
 import com.aliyuncs.http.HttpClientConfig;
 import com.aliyuncs.http.MethodType;
 import com.aliyuncs.http.ProtocolType;
+import com.aliyuncs.kms.model.v20160120.DecryptRequest;
 import com.aliyuncs.kms.model.v20160120.DescribeKeyRequest;
 import com.aliyuncs.kms.model.v20160120.DescribeKeyResponse;
+import com.aliyuncs.kms.model.v20160120.EncryptRequest;
 import com.aliyuncs.kms.model.v20160120.GenerateDataKeyRequest;
 import com.aliyuncs.kms.model.v20160120.GenerateDataKeyResponse;
-import com.aliyuncs.kms.model.v20160120.DecryptRequest;
-import com.aliyuncs.kms.model.v20160120.EncryptRequest;
 import com.aliyuncs.kms.model.v20160120.SetDeletionProtectionRequest;
 import com.aliyuncs.profile.DefaultProfile;
 import com.aliyuncs.profile.IClientProfile;
@@ -38,6 +38,8 @@ import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static com.alibaba.nacos.client.aliyun.AliyunConst.KEY_ID;
 import static com.alibaba.nacos.client.aliyun.AliyunConst.KMS_REGION_ID;
@@ -71,7 +73,13 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     public static final String KMS_KEY_SPEC_AES_128 = "AES_128";
 
     public static final String KMS_KEY_SPEC_AES_256 = "AES_256";
-
+    
+    private static final int defaultRetryTimes = 3;
+    
+    private static final int defaultRetryIntervalMilliseconds = 2 * 100;
+    
+    private static final int defaultTimeoutMilliseconds = 3 * 1000;
+    
     private IAcsClient kmsClient;
 
     private String keyId;
@@ -81,6 +89,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     private AsyncProcessor asyncProcessor;
 
     private Exception localInitException;
+    
+    private boolean isUseLocalCache;
+    
+    private KmsLocalCache kmsLocalCache;
 
     @Override
     public void init(Properties properties) {
@@ -117,7 +129,13 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         } else {
             LOGGER.info("using keyId {}.", keyId);
         }
-
+        
+        this.isUseLocalCache = KmsUtils.parsePropertyValue(properties, AliyunConst.NACOS_CONFIG_ENCRYPTION_KMS_LOCAL_CACHE_SWITCH,
+                AliyunConst.DEFAULT_KMS_LOCAL_CACHE_SWITCH);
+        if (this.isUseLocalCache()) {
+            this.kmsLocalCache = new KmsLocalCache(properties);
+        }
+        
         try {
             if (kmsVersion == AliyunConst.KmsVersion.Kmsv1) {
                 kmsClient = createKmsV1Client(properties);
@@ -328,17 +346,43 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             for (StackTraceElement ste : e.getStackTrace()) {
                 stringBuilder.append(ste.toString()).append("\n");
             }
-            NacosException ee = new NacosException(NacosException.INVALID_PARAM, AliyunConst.formatHelpMessage(stringBuilder.toString()), e);
-            throw ee;
+            NacosException nacosException = new NacosException(NacosException.INVALID_PARAM, AliyunConst.formatHelpMessage(stringBuilder.toString()), e);
+            throw nacosException;
         }
     }
 
     private String decrypt(IConfigResponse response) throws Exception {
         String dataId = (String) response.getParameter(DATA_ID);
+        String group = (String) response.getParameter(GROUP);
         String content = (String) response.getParameter(CONTENT);
+        String encryptedDataKey = null;
+        
+        //judge if using local cache or not
+        if (this.isUseLocalCache() && this.getKmsLocalCache() != null) {
+            KmsLocalCache.LocalCacheItem localCacheItem = this.getKmsLocalCache().get(this.getGroupKey2(dataId, group));
+            if (localCacheItem != null) {
+                if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
+                    if (localCacheItem.getEncryptedDataKey()!= null
+                            && localCacheItem.getEncryptedDataKey().equals((String) response.getParameter(ENCRYPTED_DATA_KEY))
+                            && localCacheItem.getEncryptedContent() != null
+                            && localCacheItem.getEncryptedContent().equals((String) response.getParameter(CONTENT))
+                            && localCacheItem.getPlainContent() != null) {
+                        return localCacheItem.getPlainContent();
+                    }
+                } else if (dataId.startsWith(CIPHER_PREFIX)) {
+                    if (localCacheItem.getEncryptedContent() != null
+                            && localCacheItem.getEncryptedContent().equals((String) response.getParameter(CONTENT))
+                            && localCacheItem.getPlainContent() != null) {
+                        return localCacheItem.getPlainContent();
+                    }
+                }
+            }
+        }
+        
+        //local cache unready or useless
         String result;
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-            String encryptedDataKey = (String) response.getParameter(ENCRYPTED_DATA_KEY);
+            encryptedDataKey = (String) response.getParameter(ENCRYPTED_DATA_KEY);
             if (!StringUtils.isBlank(encryptedDataKey)) {
                 String dataKey = decrypt(encryptedDataKey);
                 if (StringUtils.isBlank(dataKey)) {
@@ -357,6 +401,11 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 throw new RuntimeException("failed to decrypt content with empty value");
             }
         }
+        //set local cache
+        if (this.isUseLocalCache() && this.getKmsLocalCache() != null) {
+            this.getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(
+                    encryptedDataKey, content, result));
+        }
         return result;
     }
 
@@ -369,12 +418,25 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                         "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
             }
         }
+        AtomicReference<String> resultContent = new AtomicReference<>();
         final DecryptRequest decReq = new DecryptRequest();
         decReq.setSysProtocol(ProtocolType.HTTPS);
         decReq.setSysMethod(MethodType.POST);
         decReq.setAcceptFormat(FormatType.JSON);
         decReq.setCiphertextBlob(content);
-        return kmsClient.getAcsResponse(decReq).getPlaintext();
+        locallyRunWithRetryTimesAndTimeout(() -> {
+            try {
+                resultContent.set(kmsClient.getAcsResponse(decReq).getPlaintext());
+            } catch (ClientException e) {
+                //some exception need to return false to retry
+                if (KmsUtils.judgeNeedRecoveryException(e)) {
+                    return false;
+                }
+                throw new RuntimeException(e);
+            }
+            return true;
+        }, defaultRetryTimes, defaultTimeoutMilliseconds);
+        return resultContent.get();
     }
 
     private String encrypt(String keyId, IConfigRequest configRequest) throws Exception {
@@ -393,7 +455,33 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         String result;
         protectKeyId(keyId);
         String dataId = (String) configRequest.getParameter(DATA_ID);
+        String group = (String) configRequest.getParameter(GROUP);
+        String plainContent = (String) configRequest.getParameter(CONTENT);
+        
+        //judge if using local cache or not
+        if (this.isUseLocalCache() && this.getKmsLocalCache() != null) {
+            KmsLocalCache.LocalCacheItem localCacheItem = this.getKmsLocalCache().get(this.getGroupKey2(dataId, group));
+            boolean cacheUsed = false;
+            if (localCacheItem != null) {
+                if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
+                    if (!StringUtils.isBlank(localCacheItem.getEncryptedDataKey()) && !StringUtils.isBlank(localCacheItem.getEncryptedContent())) {
+                        configRequest.putParameter(ENCRYPTED_DATA_KEY, localCacheItem.getEncryptedDataKey());
+                        configRequest.putParameter(CONTENT, localCacheItem.getEncryptedContent());
+                        cacheUsed = true;
+                    }
+                } else if (dataId.startsWith(CIPHER_PREFIX)) {
+                    if (!StringUtils.isBlank(localCacheItem.getEncryptedContent())) {
+                        configRequest.putParameter(CONTENT, localCacheItem.getEncryptedContent());
+                        cacheUsed = true;
+                    }
+                }
+                if (cacheUsed) {
+                    return (String) configRequest.getParameter(CONTENT);
+                }
+            }
+        }
 
+        //local cache unready or useless
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
             String keySpec = null;
             if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX)) {
@@ -416,27 +504,59 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         if (StringUtils.isBlank(result)) {
             throw new RuntimeException("encrypt failed with empty result.");
         }
+        
+        //set local cache
+        if (this.isUseLocalCache() && this.getKmsLocalCache() != null) {
+            this.getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(
+                    (String) configRequest.getParameter(ENCRYPTED_DATA_KEY),
+                    result, plainContent));
+        }
         return result;
     }
     
     public String encrypt(String keyId, String plainText) throws Exception {
+        AtomicReference<String> resultContent = new AtomicReference<>();
         final EncryptRequest encReq = new EncryptRequest();
         encReq.setProtocol(ProtocolType.HTTPS);
         encReq.setAcceptFormat(FormatType.JSON);
         encReq.setMethod(MethodType.POST);
         encReq.setKeyId(keyId);
         encReq.setPlaintext(plainText);
-        return kmsClient.getAcsResponse(encReq).getCiphertextBlob();
+        locallyRunWithRetryTimesAndTimeout(() -> {
+            try {
+                resultContent.set( kmsClient.getAcsResponse(encReq).getCiphertextBlob());
+            } catch (ClientException e) {
+                //some exception need to return false to retry
+                if (KmsUtils.judgeNeedRecoveryException(e)) {
+                    return false;
+                }
+                throw new RuntimeException(e);
+            }
+            return true;
+        
+        }, defaultRetryIntervalMilliseconds, defaultTimeoutMilliseconds);
+        return resultContent.get();
     }
 
-    public GenerateDataKeyResponse generateDataKey(String keyId, String keySpec) throws ClientException {
+    public GenerateDataKeyResponse generateDataKey(String keyId, String keySpec) throws Exception {
         GenerateDataKeyRequest generateDataKeyRequest = new GenerateDataKeyRequest();
-
         generateDataKeyRequest.setAcceptFormat(FormatType.JSON);
-
         generateDataKeyRequest.setKeyId(keyId);
         generateDataKeyRequest.setKeySpec(keySpec);
-        return kmsClient.getAcsResponse(generateDataKeyRequest);
+        AtomicReference<GenerateDataKeyResponse> resultContent = new AtomicReference<>();
+        locallyRunWithRetryTimesAndTimeout(() -> {
+            try {
+                resultContent.set(kmsClient.getAcsResponse(generateDataKeyRequest));
+            } catch (ClientException e) {
+                //some exception need to return false to retry
+                if (KmsUtils.judgeNeedRecoveryException(e)) {
+                    return false;
+                }
+                throw new RuntimeException(e);
+            }
+            return true;
+        }, defaultRetryTimes, defaultTimeoutMilliseconds);
+        return resultContent.get();
     }
 
     private void protectKeyId(String keyId) {
@@ -487,6 +607,18 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             }
         }
     }
+    
+    private static void locallyRunWithRetryTimesAndTimeout(Supplier<Boolean> runnable, int retryTimes, long timeout)
+            throws Exception {
+        int locallyRetryTimes = 0;
+        long beginTime = System.currentTimeMillis();
+        while (locallyRetryTimes++ < retryTimes && System.currentTimeMillis() < beginTime + timeout) {
+            if (runnable.get()) {
+                break;
+            }
+            Thread.sleep(defaultRetryIntervalMilliseconds);
+        }
+    }
 
     private static String readFileToString(String filePath) {
         File file = getFileByPath(filePath);
@@ -515,6 +647,35 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         }
         return file;
     }
+    
+    private boolean isUseLocalCache() {
+        return this.isUseLocalCache;
+    }
+    
+    private KmsLocalCache getKmsLocalCache() {
+        return this.kmsLocalCache;
+    }
+    
+    private String getGroupKey2(String dataId, String group) {
+        StringBuilder sb = new StringBuilder();
+        urlEncode(dataId, sb);
+        sb.append('+');
+        urlEncode(group, sb);
+        return sb.toString();
+    }
+    private void urlEncode(String str, StringBuilder sb) {
+        for (int idx = 0; idx < str.length(); ++idx) {
+            char c = str.charAt(idx);
+            if ('+' == c) {
+                sb.append("%2B");
+            } else if ('%' == c) {
+                sb.append("%25");
+            } else {
+                sb.append(c);
+            }
+        }
+    }
+    
     @Override
     public int getOrder() {
         return 1;
