@@ -14,25 +14,24 @@ public class KmsUtils {
     /**
      * KMS限流返回错误码
      */
-    private final static String REJECTED_THROTTLING = "Rejected.Throttling";
+    public final static String REJECTED_THROTTLING = "Rejected.Throttling";
     /**
      * KMS服务不可用返回错误码
      */
-    private final static String SERVICE_UNAVAILABLE_TEMPORARY = "ServiceUnavailableTemporary";
+    public final static String SERVICE_UNAVAILABLE_TEMPORARY = "ServiceUnavailableTemporary";
     /**
      * KMS服务内部错误返回错误码
      */
-    private final static String INTERNAL_FAILURE = "InternalFailure";
-    
+    public final static String INTERNAL_FAILURE = "InternalFailure";
     /**
      * KMS服务Socket连接超时错误码
      */
-    private final static String SDK_READ_TIMEOUT = "SDK.ReadTimeout";
+    public final static String SDK_READ_TIMEOUT = "SDK.ReadTimeout";
     
     /**
      * KMS服务无法连接错误码
      */
-    private final static String SDK_SERVER_UNREACHABLE = "SDK.ServerUnreachable";
+    public final static String SDK_SERVER_UNREACHABLE = "SDK.ServerUnreachable";
     
     /**
      * 根据Client异常判断是否进行规避重试
