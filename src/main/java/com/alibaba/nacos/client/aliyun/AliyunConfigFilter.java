@@ -362,17 +362,17 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             KmsLocalCache.LocalCacheItem localCacheItem = this.getKmsLocalCache().get(this.getGroupKey2(dataId, group));
             if (localCacheItem != null) {
                 if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-                    if (localCacheItem.getEncryptedDataKey()!= null
+                    if (!StringUtils.isBlank(localCacheItem.getEncryptedDataKey())
                             && localCacheItem.getEncryptedDataKey().equals(encryptedDataKey)
-                            && localCacheItem.getEncryptedContent() != null
+                            && !StringUtils.isBlank(localCacheItem.getEncryptedContent())
                             && localCacheItem.getEncryptedContent().equals(content)
-                            && localCacheItem.getPlainContent() != null) {
+                            && !StringUtils.isBlank(localCacheItem.getPlainContent())) {
                         return localCacheItem.getPlainContent();
                     }
                 } else if (dataId.startsWith(CIPHER_PREFIX)) {
-                    if (localCacheItem.getEncryptedContent() != null
+                    if (!StringUtils.isBlank(localCacheItem.getEncryptedContent())
                             && localCacheItem.getEncryptedContent().equals(content)
-                            && localCacheItem.getPlainContent() != null) {
+                            && !StringUtils.isBlank(localCacheItem.getPlainContent())) {
                         return localCacheItem.getPlainContent();
                     }
                 }
@@ -451,6 +451,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             throw new RuntimeException("keyId is not set up yet, unable to encrypt the configuration. " +
                     "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
         }
+        
         String result;
         protectKeyId(keyId);
         String dataId = (String) configRequest.getParameter(DATA_ID);
@@ -463,13 +464,18 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             boolean cacheUsed = false;
             if (localCacheItem != null) {
                 if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-                    if (!StringUtils.isBlank(localCacheItem.getEncryptedDataKey()) && !StringUtils.isBlank(localCacheItem.getEncryptedContent())) {
+                    if (!StringUtils.isBlank(localCacheItem.getEncryptedDataKey())
+                            && !StringUtils.isBlank(localCacheItem.getEncryptedContent())
+                            && !StringUtils.isBlank(localCacheItem.getPlainContent())
+                            && localCacheItem.getPlainContent().equals(plainContent)) {
                         configRequest.putParameter(ENCRYPTED_DATA_KEY, localCacheItem.getEncryptedDataKey());
                         configRequest.putParameter(CONTENT, localCacheItem.getEncryptedContent());
                         cacheUsed = true;
                     }
                 } else if (dataId.startsWith(CIPHER_PREFIX)) {
-                    if (!StringUtils.isBlank(localCacheItem.getEncryptedContent())) {
+                    if (!StringUtils.isBlank(localCacheItem.getEncryptedContent())
+                            && !StringUtils.isBlank(localCacheItem.getPlainContent())
+                            && localCacheItem.getPlainContent().equals(plainContent)) {
                         configRequest.putParameter(CONTENT, localCacheItem.getEncryptedContent());
                         cacheUsed = true;
                     }
