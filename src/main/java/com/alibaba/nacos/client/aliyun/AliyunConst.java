@@ -7,6 +7,24 @@ package com.alibaba.nacos.client.aliyun;
  */
 public class AliyunConst {
     
+    public static final String GROUP = "group";
+    
+    public static final String DATA_ID = "dataId";
+    
+    public static final String CONTENT = "content";
+    
+    public static final String ENCRYPTED_DATA_KEY = "encryptedDataKey";
+    
+    public static final String CIPHER_PREFIX = "cipher-";
+    
+    public static final String CIPHER_KMS_AES_128_PREFIX = "cipher-kms-aes-128-";
+    
+    public static final String CIPHER_KMS_AES_256_PREFIX = "cipher-kms-aes-256-";
+    
+    public static final String KMS_KEY_SPEC_AES_128 = "AES_128";
+    
+    public static final String KMS_KEY_SPEC_AES_256 = "AES_256";
+    
     public static final String ENCODE_UTF8 = "UTF-8";
     
     public static final String KMS_ENDPOINT = "kmsEndpoint";

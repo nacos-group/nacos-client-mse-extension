@@ -20,6 +20,10 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
+import static com.alibaba.nacos.client.aliyun.AliyunConst.CIPHER_KMS_AES_128_PREFIX;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.CIPHER_KMS_AES_256_PREFIX;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.CIPHER_PREFIX;
+
 public class AliyunConfigFilterTest {
     private static final String ENCRYPTED_DATA_KEY = "encryptedDataKey";
     private static final String CONTENT = "content";
@@ -185,10 +189,10 @@ public class AliyunConfigFilterTest {
             try {
                 configFilterChainManager.doFilter(configRequest, null);
                 KmsLocalCache.LocalCacheItem localCacheItem = kmsLocalCache.get(groupKey);
-                if (dataId.startsWith(AliyunConfigFilter.CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(AliyunConfigFilter.CIPHER_KMS_AES_256_PREFIX)) {
+                if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
                     Assertions.assertEquals(localCacheItem.getEncryptedContent(), configRequest.getContent());
                     Assertions.assertEquals(localCacheItem.getEncryptedDataKey(), configRequest.getEncryptedDataKey());
-                } else if (dataId.startsWith(AliyunConfigFilter.CIPHER_PREFIX)) {
+                } else if (dataId.startsWith(CIPHER_PREFIX)) {
                     Assertions.assertEquals(localCacheItem.getEncryptedContent(), configRequest.getContent());
                 }
             } catch (NacosException e) {
@@ -204,11 +208,11 @@ public class AliyunConfigFilterTest {
             try {
                 configFilterChainManager.doFilter(null, configResponse);
                 KmsLocalCache.LocalCacheItem localCacheItem = kmsLocalCache.get(groupKey);
-                if (dataId.startsWith(AliyunConfigFilter.CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(AliyunConfigFilter.CIPHER_KMS_AES_256_PREFIX)) {
+                if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
                     Assertions.assertEquals(localCacheItem.getEncryptedContent(), configRequest.getContent());
                     Assertions.assertEquals(localCacheItem.getEncryptedDataKey(), configRequest.getEncryptedDataKey());
                     Assertions.assertEquals(content, configResponse.getContent());
-                } else if (dataId.startsWith(AliyunConfigFilter.CIPHER_PREFIX)) {
+                } else if (dataId.startsWith(CIPHER_PREFIX)) {
                     Assertions.assertEquals(localCacheItem.getPlainContent(), configResponse.getContent());
                 }
             } catch (NacosException e) {

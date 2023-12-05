@@ -41,7 +41,16 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static com.alibaba.nacos.client.aliyun.AliyunConst.CIPHER_KMS_AES_128_PREFIX;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.CIPHER_KMS_AES_256_PREFIX;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.CIPHER_PREFIX;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.CONTENT;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.DATA_ID;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.ENCRYPTED_DATA_KEY;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.GROUP;
 import static com.alibaba.nacos.client.aliyun.AliyunConst.KEY_ID;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.KMS_KEY_SPEC_AES_128;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.KMS_KEY_SPEC_AES_256;
 import static com.alibaba.nacos.client.aliyun.AliyunConst.KMS_REGION_ID;
 import static com.alibaba.nacos.client.aliyun.AliyunConst.REGION_ID;
 
@@ -54,24 +63,6 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AliyunConfigFilter.class);
 
-    private static final String GROUP = "group";
-
-    private static final String DATA_ID = "dataId";
-
-    private static final String CONTENT = "content";
-
-    private static final String ENCRYPTED_DATA_KEY = "encryptedDataKey";
-
-    public static final String CIPHER_PREFIX = "cipher-";
-
-    public static final String CIPHER_KMS_AES_128_PREFIX = "cipher-kms-aes-128-";
-
-    public static final String CIPHER_KMS_AES_256_PREFIX = "cipher-kms-aes-256-";
-
-    public static final String KMS_KEY_SPEC_AES_128 = "AES_128";
-
-    public static final String KMS_KEY_SPEC_AES_256 = "AES_256";
-    
     public static final int defaultRetryTimes = 3;
     
     public static final int defaultRetryIntervalMilliseconds = 2 * 100;
