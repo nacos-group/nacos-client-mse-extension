@@ -7,6 +7,9 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * @author rong
+ */
 public class AsyncProcessor {
 
     private static final int QUEUE_INITIAL_CAPACITY = 8;
