@@ -342,12 +342,13 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         String group = (String) response.getParameter(GROUP);
         String encryptedContent = (String) response.getParameter(CONTENT);
         String encryptedDataKey = (String) response.getParameter(ENCRYPTED_DATA_KEY);
+        String result = null;
+        String dataKey = null;
+        boolean isUsedCache = false;
         
         //prefer to use kms service
-        String result = null;
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
             if (!StringUtils.isBlank(encryptedDataKey)) {
-                String dataKey = null;
                 try {
                     dataKey = decrypt(encryptedDataKey);
                 } catch (Exception e) {
@@ -357,6 +358,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                     KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId, encryptedDataKey, encryptedContent);
                     if (localCacheItem != null) {
                         dataKey = localCacheItem.getPlainDataKey();
+                        isUsedCache = true;
                     } else {
                         throw e;
                     }
@@ -367,6 +369,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                     KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId, encryptedDataKey, encryptedContent);
                     if (localCacheItem != null) {
                         dataKey = localCacheItem.getPlainDataKey();
+                        isUsedCache = true;
                     } else {
                         throw new RuntimeException("failed to decrypt encryptedDataKey with empty value");
                     }
@@ -376,8 +379,9 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                     throw new RuntimeException("failed to decrypt content with empty value");
                 }
                 //update local cache
-                getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(
-                        encryptedDataKey, encryptedContent, dataKey, null));
+                if (!isUsedCache) {
+                    getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(encryptedDataKey, encryptedContent, dataKey, null));
+                }
             } else {
                 throw new RuntimeException("encrypted failed encryptedDataKey is empty");
             }
@@ -391,6 +395,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId, encryptedDataKey, encryptedContent);
                 if (localCacheItem != null) {
                     result = localCacheItem.getPlainContent();
+                    isUsedCache = true;
                 } else {
                     throw e;
                 }
@@ -401,13 +406,18 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId, encryptedDataKey, encryptedContent);
                 if (localCacheItem != null) {
                     result = localCacheItem.getPlainContent();
+                    isUsedCache = true;
                 } else {
                     throw new RuntimeException("failed to decrypt content with empty value");
                 }
             }
             //update local cache
-            getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(
-                    null, encryptedContent, null, result));
+            if (!isUsedCache) {
+                getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(null, encryptedContent, null, result));
+            }
+        }
+        if (StringUtils.isBlank(result)) {
+            throw new RuntimeException("decrypt failed with empty result.");
         }
         return result;
     }
