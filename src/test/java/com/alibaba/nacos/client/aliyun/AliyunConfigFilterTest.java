@@ -141,7 +141,6 @@ public class AliyunConfigFilterTest {
         properties.setProperty("accessKey", "LTAxxx");
         properties.setProperty("secretKey", "EdPxxx");
         properties.setProperty("keyId", "alias/acs/mse");
-        executeConfigFilterWithCachePreset();
         executeConfigFilterWithCacheAfterSet();
     }
     
@@ -154,63 +153,8 @@ public class AliyunConfigFilterTest {
     //        properties.setProperty("kmsClientKeyFilePath", "/client_key.json");
     //        properties.setProperty("kmsPasswordKey", "19axxx213");
     //        properties.setProperty("kmsCaFilePath", "/ca.pem");
-    //        executeConfigFilterWithCachePreset();
     //        executeConfigFilterWithCacheAfterSet();
     //    }
-    
-    private void executeConfigFilterWithCachePreset()
-            throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
-        ConfigFilterChainManager configFilterChainManager = new ConfigFilterChainManager(properties);
-        Class<? extends ConfigFilterChainManager> configFilterChainManagerClass =  configFilterChainManager.getClass();
-        Field filtersField = configFilterChainManagerClass.getDeclaredField("filters");
-        filtersField.setAccessible(true);
-        List<IConfigFilter> filters = (List<IConfigFilter>) filtersField.get(configFilterChainManager);
-        
-        AliyunConfigFilter aliyunConfigFilter = (AliyunConfigFilter) filters.get(1);
-        
-        Class<AliyunConfigFilter> aliyunConfigFilterClass = AliyunConfigFilter.class;
-        
-        Method getGroupKey2 = aliyunConfigFilterClass.getDeclaredMethod("getGroupKey2", String.class, String.class);
-        getGroupKey2.setAccessible(true);
-        Field kmsLocalCacheField = aliyunConfigFilterClass.getDeclaredField("kmsLocalCache");
-        kmsLocalCacheField.setAccessible(true);
-        
-        KmsLocalCache kmsLocalCache = (KmsLocalCache) kmsLocalCacheField.get(aliyunConfigFilter);
-        
-        for (String dataId : dataIdList) {
-            String encryptedDataKey = dataId + "-encryptedDataKey";
-            String encryptedContent = dataId + "-encryptedContent";
-            String groupKey = (String) getGroupKey2.invoke(aliyunConfigFilter, dataId, group);
-            kmsLocalCache.put(groupKey, new KmsLocalCache.LocalCacheItem(encryptedDataKey, encryptedContent, content));
-            ConfigRequest configRequest = new ConfigRequest();
-            configRequest.setGroup(group);
-            configRequest.setDataId(dataId);
-            configRequest.setContent(content);
-            try {
-                configFilterChainManager.doFilter(configRequest, null);
-                if (dataId.startsWith(AliyunConfigFilter.CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(AliyunConfigFilter.CIPHER_KMS_AES_256_PREFIX)) {
-                    Assertions.assertEquals(encryptedContent, configRequest.getContent());
-                    Assertions.assertEquals(encryptedDataKey, configRequest.getEncryptedDataKey());
-                } else if (dataId.startsWith(AliyunConfigFilter.CIPHER_PREFIX)) {
-                    Assertions.assertEquals(encryptedContent, configRequest.getContent());
-                }
-            } catch (NacosException e) {
-                e.printStackTrace();
-            }
-            
-            ConfigResponse configResponse = new ConfigResponse();
-            configResponse.setGroup(group);
-            configResponse.setDataId(dataId);
-            configResponse.setEncryptedDataKey((String) configRequest.getParameter(ENCRYPTED_DATA_KEY));
-            configResponse.setContent(encryptedContent);
-            try {
-                configFilterChainManager.doFilter(null, configResponse);
-                Assertions.assertEquals(content, configResponse.getContent());
-            } catch (NacosException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
     
     private void executeConfigFilterWithCacheAfterSet()
             throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
@@ -260,7 +204,13 @@ public class AliyunConfigFilterTest {
             try {
                 configFilterChainManager.doFilter(null, configResponse);
                 KmsLocalCache.LocalCacheItem localCacheItem = kmsLocalCache.get(groupKey);
-                Assertions.assertEquals(localCacheItem.getPlainContent(), configResponse.getContent());
+                if (dataId.startsWith(AliyunConfigFilter.CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(AliyunConfigFilter.CIPHER_KMS_AES_256_PREFIX)) {
+                    Assertions.assertEquals(localCacheItem.getEncryptedContent(), configRequest.getContent());
+                    Assertions.assertEquals(localCacheItem.getEncryptedDataKey(), configRequest.getEncryptedDataKey());
+                    Assertions.assertEquals(content, configResponse.getContent());
+                } else if (dataId.startsWith(AliyunConfigFilter.CIPHER_PREFIX)) {
+                    Assertions.assertEquals(localCacheItem.getPlainContent(), configResponse.getContent());
+                }
             } catch (NacosException e) {
                 throw new RuntimeException(e);
             }

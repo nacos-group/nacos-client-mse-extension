@@ -67,13 +67,16 @@ public class KmsLocalCache {
         
         private String encryptedContent;
         
+        private String plainDataKey;
+        
         private String plainContent;
         
         public LocalCacheItem() {}
         
-        public LocalCacheItem(String encryptedDataKey, String encryptedContent, String plainContent) {
+        public LocalCacheItem(String encryptedDataKey, String encryptedContent, String plainDataKey, String plainContent) {
             this.encryptedDataKey = encryptedDataKey;
             this.encryptedContent = encryptedContent;
+            this.plainDataKey = plainDataKey;
             this.plainContent = plainContent;
         }
         
@@ -93,6 +96,14 @@ public class KmsLocalCache {
             this.encryptedContent = encryptedContent;
         }
         
+        public String getPlainDataKey() {
+            return plainDataKey;
+        }
+        
+        public void setPlainDataKey(String plainDataKey) {
+            this.plainDataKey = plainDataKey;
+        }
+        
         public String getPlainContent() {
             return plainContent;
         }
@@ -104,7 +115,8 @@ public class KmsLocalCache {
         @Override
         public String toString() {
             return "LocalCacheItem{" + "encryptedDataKey='" + encryptedDataKey + '\'' + ", encryptedContent='"
-                    + encryptedContent + '\'' + ", plainContent='" + plainContent + '\'' + '}';
+                    + encryptedContent + '\'' + ", plainDataKey='" + plainDataKey + '\'' + ", plainContent='"
+                    + plainContent + '\'' + '}';
         }
     }
 }

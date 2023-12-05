@@ -349,53 +349,74 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     private String decrypt(IConfigResponse response) throws Exception {
         String dataId = (String) response.getParameter(DATA_ID);
         String group = (String) response.getParameter(GROUP);
-        String content = (String) response.getParameter(CONTENT);
+        String encryptedContent = (String) response.getParameter(CONTENT);
         String encryptedDataKey = (String) response.getParameter(ENCRYPTED_DATA_KEY);
         
-        //judge if using local cache or not
-        if (this.isUseLocalCache() && this.getKmsLocalCache() != null) {
-            KmsLocalCache.LocalCacheItem localCacheItem = this.getKmsLocalCache().get(this.getGroupKey2(dataId, group));
-            if (localCacheItem != null) {
-                if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-                    if (checkIfKmsAes256AndAes128CacheItemValid(localCacheItem)
-                            && localCacheItem.getEncryptedDataKey().equals(encryptedDataKey)
-                            && localCacheItem.getEncryptedContent().equals(content)) {
-                        return localCacheItem.getPlainContent();
-                    }
-                } else if (dataId.startsWith(CIPHER_PREFIX)) {
-                    if (checkIfKmsCacheItemValid(localCacheItem)
-                            && localCacheItem.getEncryptedContent().equals(content)) {
-                        return localCacheItem.getPlainContent();
-                    }
-                }
-            }
-        }
-        
-        //local cache unready or useless
-        String result;
+        //prefer to use kms service
+        String result = null;
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
             if (!StringUtils.isBlank(encryptedDataKey)) {
-                String dataKey = decrypt(encryptedDataKey);
+                String dataKey = null;
+                try {
+                    dataKey = decrypt(encryptedDataKey);
+                } catch (Exception e) {
+                    //use local cache protection
+                    LOGGER.error("decrypt config:[{}] failed by using kms service: {}. will use local cache.",
+                            this.getGroupKey2(dataId, group), e.getMessage(), e);
+                    KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId, encryptedDataKey, encryptedContent);
+                    if (localCacheItem != null) {
+                        dataKey = localCacheItem.getPlainDataKey();
+                    } else {
+                        throw e;
+                    }
+                }
                 if (StringUtils.isBlank(dataKey)) {
-                    throw new RuntimeException("failed to decrypt encryptedDataKey with empty value");
+                    //use local cache protection
+                    LOGGER.warn("decrypt config [{}] with empty dataKey by using kms service. will use local cache.", this.getGroupKey2(dataId, group));
+                    KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId, encryptedDataKey, encryptedContent);
+                    if (localCacheItem != null) {
+                        dataKey = localCacheItem.getPlainDataKey();
+                    } else {
+                        throw new RuntimeException("failed to decrypt encryptedDataKey with empty value");
+                    }
                 }
                 result = AesUtils.decrypt((String) response.getParameter(CONTENT), dataKey, "UTF-8");
                 if (StringUtils.isBlank(result)) {
                     throw new RuntimeException("failed to decrypt content with empty value");
                 }
+                //update local cache
+                getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(
+                        encryptedDataKey, encryptedContent, dataKey, null));
             } else {
                 throw new RuntimeException("encrypted failed encryptedDataKey is empty");
             }
         } else {
-            result = decrypt(content);
-            if (StringUtils.isBlank(result)) {
-                throw new RuntimeException("failed to decrypt content with empty value");
+            try {
+                result = decrypt(encryptedContent);
+            } catch (Exception e) {
+                //use local cache protection
+                LOGGER.error("decrypt config:[{}] failed by using kms service: {}. will use local cache.",
+                        this.getGroupKey2(dataId, group), e.getMessage(), e);
+                KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId, encryptedDataKey, encryptedContent);
+                if (localCacheItem != null) {
+                    result = localCacheItem.getPlainContent();
+                } else {
+                    throw e;
+                }
             }
-        }
-        //set local cache
-        if (this.isUseLocalCache() && this.getKmsLocalCache() != null) {
-            this.getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(
-                    encryptedDataKey, content, result));
+            if (StringUtils.isBlank(result)) {
+                //use local cache protection
+                LOGGER.warn("decrypt config [{}] with empty content by using kms service. will use local cache.", this.getGroupKey2(dataId, group));
+                KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId, encryptedDataKey, encryptedContent);
+                if (localCacheItem != null) {
+                    result = localCacheItem.getPlainContent();
+                } else {
+                    throw new RuntimeException("failed to decrypt content with empty value");
+                }
+            }
+            //update local cache
+            getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(
+                    null, encryptedContent, null, result));
         }
         return result;
     }
@@ -446,36 +467,15 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         
         protectKeyId(keyId);
         
-        String result;
         String dataId = (String) configRequest.getParameter(DATA_ID);
         String group = (String) configRequest.getParameter(GROUP);
         String plainContent = (String) configRequest.getParameter(CONTENT);
+        String result; //encryptedContent
+        String dataKey;
+        String encryptedDataKey;
+        boolean isUsedCache = false;
         
-        //judge if using local cache or not
-        if (this.isUseLocalCache() && this.getKmsLocalCache() != null) {
-            KmsLocalCache.LocalCacheItem localCacheItem = this.getKmsLocalCache().get(this.getGroupKey2(dataId, group));
-            boolean cacheUsed = false;
-            if (localCacheItem != null) {
-                if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-                    if (checkIfKmsAes256AndAes128CacheItemValid(localCacheItem)
-                            && localCacheItem.getPlainContent().equals(plainContent)) {
-                        configRequest.putParameter(ENCRYPTED_DATA_KEY, localCacheItem.getEncryptedDataKey());
-                        configRequest.putParameter(CONTENT, localCacheItem.getEncryptedContent());
-                        cacheUsed = true;
-                    }
-                } else if (dataId.startsWith(CIPHER_PREFIX)) {
-                    if (checkIfKmsCacheItemValid(localCacheItem) && localCacheItem.getPlainContent().equals(plainContent)) {
-                        configRequest.putParameter(CONTENT, localCacheItem.getEncryptedContent());
-                        cacheUsed = true;
-                    }
-                }
-                if (cacheUsed) {
-                    return (String) configRequest.getParameter(CONTENT);
-                }
-            }
-        }
-
-        //local cache unready or useless
+        //prefer to use kms service
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
             String keySpec = null;
             if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX)) {
@@ -483,27 +483,74 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             } else {
                 keySpec = KMS_KEY_SPEC_AES_256;
             }
-            GenerateDataKeyResponse generateDataKeyResponse = generateDataKey(keyId, keySpec);
-            String dataKey = generateDataKeyResponse.getPlaintext();
-            if (StringUtils.isBlank(dataKey.trim())) {
-                throw new RuntimeException("get generateDataKey failed with empty content. " +
-                        "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+            try {
+                GenerateDataKeyResponse generateDataKeyResponse = generateDataKey(keyId, keySpec);
+                dataKey = generateDataKeyResponse.getPlaintext();
+                encryptedDataKey = generateDataKeyResponse.getCiphertextBlob();
+            } catch (Exception e) {
+                //use local cache protection
+                LOGGER.error("encrypt config(generate DataKey):[{}] failed by using kms service: {}. will use local cache.",
+                        this.getGroupKey2(dataId, group), e.getMessage(), e);
+                KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId);
+                if (localCacheItem != null) {
+                    encryptedDataKey = localCacheItem.getEncryptedDataKey();
+                    dataKey = localCacheItem.getPlainDataKey();
+                    isUsedCache = true;
+                } else {
+                    throw e;
+                }
             }
-            configRequest.putParameter(ENCRYPTED_DATA_KEY, generateDataKeyResponse.getCiphertextBlob());
+            if (StringUtils.isBlank(dataKey) || StringUtils.isBlank(encryptedDataKey)) {
+                //use local cache protection
+                LOGGER.warn("encrypt config [{}] with empty dataKey by using kms service. will use local cache.", this.getGroupKey2(dataId, group));
+                KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId);
+                if (localCacheItem != null) {
+                    encryptedDataKey = localCacheItem.getEncryptedDataKey();
+                    dataKey = localCacheItem.getPlainDataKey();
+                    isUsedCache = true;
+                } else {
+                    throw new RuntimeException("get generateDataKey failed with empty content. " +
+                            "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
+                }
+            }
+            configRequest.putParameter(ENCRYPTED_DATA_KEY, encryptedDataKey);
             result = AesUtils.encrypt((String) configRequest.getParameter(CONTENT), dataKey, "UTF-8");
+            
+            //update local cache
+            if (!isUsedCache) {
+                getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(
+                        encryptedDataKey, result, dataKey, null));
+            }
         } else {
-            result = encrypt(keyId, (String) configRequest.getParameter(CONTENT));
+            try {
+                result = encrypt(keyId, plainContent);
+            } catch (Exception e) {
+                //use local cache protection
+                LOGGER.error("encrypt config:[{}] failed by using kms service: {}. will use local cache.",
+                        this.getGroupKey2(dataId, group), e.getMessage(), e);
+                KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId);
+                if (localCacheItem != null) {
+                    return localCacheItem.getEncryptedContent();
+                } else {
+                    throw e;
+                }
+            }
+            if (StringUtils.isBlank(result)) {
+                //use local cache protection
+                LOGGER.warn("encrypt config [{}] with empty content by using kms service. will use local cache.", this.getGroupKey2(dataId, group));
+                KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId);
+                if (localCacheItem != null) {
+                    return localCacheItem.getEncryptedContent();
+                } else {
+                    throw new RuntimeException("encrypt failed with empty result.");
+                }
+            }
+            //update local cache
+            getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(
+                    null, result, null, plainContent));
         }
-
         if (StringUtils.isBlank(result)) {
             throw new RuntimeException("encrypt failed with empty result.");
-        }
-        
-        //set local cache
-        if (this.isUseLocalCache() && this.getKmsLocalCache() != null) {
-            this.getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(
-                    (String) configRequest.getParameter(ENCRYPTED_DATA_KEY),
-                    result, plainContent));
         }
         return result;
     }
@@ -650,6 +697,72 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         return this.kmsLocalCache;
     }
     
+    private KmsLocalCache.LocalCacheItem getLocalCacheItem(String group, String dataId, String encryptDataKey, String encryptedContent) {
+        //check if open local cache
+        if (!this.isUseLocalCache() || this.getKmsLocalCache() == null) {
+            return null;
+        }
+        
+        //check if cache is ready
+        KmsLocalCache.LocalCacheItem localCacheItem = this.getKmsLocalCache().get(this.getGroupKey2(dataId, group));
+        if (localCacheItem == null) {
+            return null;
+        }
+        
+        //check if cache is valid
+        if (checkIfKmsCacheItemValidByDecrypt(localCacheItem, dataId, encryptDataKey, encryptedContent)) {
+            return null;
+        }
+        return localCacheItem;
+    }
+    
+    private KmsLocalCache.LocalCacheItem getLocalCacheItem(String group, String dataId) {
+        //check if open local cache
+        if (!this.isUseLocalCache() || this.getKmsLocalCache() == null) {
+            return null;
+        }
+        
+        //check if cache is ready
+        KmsLocalCache.LocalCacheItem localCacheItem = this.getKmsLocalCache().get(this.getGroupKey2(dataId, group));
+        if (localCacheItem == null) {
+            return null;
+        }
+        
+        //check if cache is valid
+        if (checkIfKmsCacheItemValidByEncrypt(localCacheItem, dataId)) {
+            return null;
+        }
+        
+        return localCacheItem;
+    }
+    
+    private boolean checkIfKmsCacheItemValidByEncrypt(KmsLocalCache.LocalCacheItem localCacheItem, String dataId) {
+        if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
+            return !StringUtils.isBlank(localCacheItem.getEncryptedDataKey())
+                    && !StringUtils.isBlank(localCacheItem.getEncryptedContent())
+                    && !StringUtils.isBlank(localCacheItem.getPlainDataKey());
+        } else if (dataId.startsWith(CIPHER_PREFIX)) {
+            return !StringUtils.isBlank(localCacheItem.getEncryptedContent())
+                    && !StringUtils.isBlank(localCacheItem.getPlainContent());
+        }
+        return false;
+    }
+    
+    private boolean checkIfKmsCacheItemValidByDecrypt(KmsLocalCache.LocalCacheItem localCacheItem, String dataId, String encryptedDataKey, String encryptedContent) {
+        if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
+            return !StringUtils.isBlank(localCacheItem.getEncryptedDataKey())
+                    && !StringUtils.isBlank(localCacheItem.getEncryptedContent())
+                    && !StringUtils.isBlank(localCacheItem.getPlainDataKey())
+                    && localCacheItem.getEncryptedDataKey().equals(encryptedDataKey)
+                    && localCacheItem.getEncryptedContent().equals(encryptedContent);
+        } else if (dataId.startsWith(CIPHER_PREFIX)) {
+            return !StringUtils.isBlank(localCacheItem.getEncryptedContent())
+                    && !StringUtils.isBlank(localCacheItem.getPlainContent())
+                    && localCacheItem.getEncryptedContent().equals(encryptedContent);
+        }
+        return false;
+    }
+    
     private String getGroupKey2(String dataId, String group) {
         StringBuilder sb = new StringBuilder();
         urlEncode(dataId, sb);
@@ -670,18 +783,6 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             }
         }
     }
-    
-    private boolean checkIfKmsAes256AndAes128CacheItemValid(KmsLocalCache.LocalCacheItem localCacheItem) {
-        return !StringUtils.isBlank(localCacheItem.getEncryptedDataKey())
-                && !StringUtils.isBlank(localCacheItem.getEncryptedContent())
-                && !StringUtils.isBlank(localCacheItem.getPlainContent());
-    }
-    
-    private boolean checkIfKmsCacheItemValid(KmsLocalCache.LocalCacheItem localCacheItem) {
-        return !StringUtils.isBlank(localCacheItem.getEncryptedContent())
-                && !StringUtils.isBlank(localCacheItem.getPlainContent());
-    }
-    
     
     @Override
     public int getOrder() {
