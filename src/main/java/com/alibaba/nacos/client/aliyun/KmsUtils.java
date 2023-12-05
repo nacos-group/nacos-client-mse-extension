@@ -7,6 +7,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 
+/**
+ * @author rong
+ */
 public class KmsUtils {
     
     private static final Logger LOGGER = LoggerFactory.getLogger(KmsUtils.class);

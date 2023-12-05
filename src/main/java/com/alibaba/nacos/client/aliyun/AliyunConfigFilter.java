@@ -342,12 +342,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             String message = String.format("KMS message:[%s], error message:[%s], dataId: %s, groupId: %s", e.getMessage(), e.getErrMsg(), dataId, group);
             throw new NacosException(NacosException.HTTP_CLIENT_ERROR_CODE, AliyunConst.formatHelpMessage(message), e);
         } catch (Exception e) {
-            StringBuilder stringBuilder = new StringBuilder();
-            for (StackTraceElement ste : e.getStackTrace()) {
-                stringBuilder.append(ste.toString()).append("\n");
-            }
-            NacosException nacosException = new NacosException(NacosException.INVALID_PARAM, AliyunConst.formatHelpMessage(stringBuilder.toString()), e);
-            throw nacosException;
+            throw new NacosException(NacosException.INVALID_PARAM, AliyunConst.formatHelpMessage(e.getMessage()), e);
         }
     }
 
@@ -362,17 +357,14 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             KmsLocalCache.LocalCacheItem localCacheItem = this.getKmsLocalCache().get(this.getGroupKey2(dataId, group));
             if (localCacheItem != null) {
                 if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-                    if (!StringUtils.isBlank(localCacheItem.getEncryptedDataKey())
+                    if (checkIfKmsAes256AndAes128CacheItemValid(localCacheItem)
                             && localCacheItem.getEncryptedDataKey().equals(encryptedDataKey)
-                            && !StringUtils.isBlank(localCacheItem.getEncryptedContent())
-                            && localCacheItem.getEncryptedContent().equals(content)
-                            && !StringUtils.isBlank(localCacheItem.getPlainContent())) {
+                            && localCacheItem.getEncryptedContent().equals(content)) {
                         return localCacheItem.getPlainContent();
                     }
                 } else if (dataId.startsWith(CIPHER_PREFIX)) {
-                    if (!StringUtils.isBlank(localCacheItem.getEncryptedContent())
-                            && localCacheItem.getEncryptedContent().equals(content)
-                            && !StringUtils.isBlank(localCacheItem.getPlainContent())) {
+                    if (checkIfKmsCacheItemValid(localCacheItem)
+                            && localCacheItem.getEncryptedContent().equals(content)) {
                         return localCacheItem.getPlainContent();
                     }
                 }
@@ -452,8 +444,9 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                     "For more information, please check: " + AliyunConst.MSE_ENCRYPTED_CONFIG_USAGE_DOCUMENT_URL);
         }
         
-        String result;
         protectKeyId(keyId);
+        
+        String result;
         String dataId = (String) configRequest.getParameter(DATA_ID);
         String group = (String) configRequest.getParameter(GROUP);
         String plainContent = (String) configRequest.getParameter(CONTENT);
@@ -464,18 +457,14 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             boolean cacheUsed = false;
             if (localCacheItem != null) {
                 if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-                    if (!StringUtils.isBlank(localCacheItem.getEncryptedDataKey())
-                            && !StringUtils.isBlank(localCacheItem.getEncryptedContent())
-                            && !StringUtils.isBlank(localCacheItem.getPlainContent())
+                    if (checkIfKmsAes256AndAes128CacheItemValid(localCacheItem)
                             && localCacheItem.getPlainContent().equals(plainContent)) {
                         configRequest.putParameter(ENCRYPTED_DATA_KEY, localCacheItem.getEncryptedDataKey());
                         configRequest.putParameter(CONTENT, localCacheItem.getEncryptedContent());
                         cacheUsed = true;
                     }
                 } else if (dataId.startsWith(CIPHER_PREFIX)) {
-                    if (!StringUtils.isBlank(localCacheItem.getEncryptedContent())
-                            && !StringUtils.isBlank(localCacheItem.getPlainContent())
-                            && localCacheItem.getPlainContent().equals(plainContent)) {
+                    if (checkIfKmsCacheItemValid(localCacheItem) && localCacheItem.getPlainContent().equals(plainContent)) {
                         configRequest.putParameter(CONTENT, localCacheItem.getEncryptedContent());
                         cacheUsed = true;
                     }
@@ -668,6 +657,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         urlEncode(group, sb);
         return sb.toString();
     }
+    
     private void urlEncode(String str, StringBuilder sb) {
         for (int idx = 0; idx < str.length(); ++idx) {
             char c = str.charAt(idx);
@@ -680,6 +670,18 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             }
         }
     }
+    
+    private boolean checkIfKmsAes256AndAes128CacheItemValid(KmsLocalCache.LocalCacheItem localCacheItem) {
+        return !StringUtils.isBlank(localCacheItem.getEncryptedDataKey())
+                && !StringUtils.isBlank(localCacheItem.getEncryptedContent())
+                && !StringUtils.isBlank(localCacheItem.getPlainContent());
+    }
+    
+    private boolean checkIfKmsCacheItemValid(KmsLocalCache.LocalCacheItem localCacheItem) {
+        return !StringUtils.isBlank(localCacheItem.getEncryptedContent())
+                && !StringUtils.isBlank(localCacheItem.getPlainContent());
+    }
+    
     
     @Override
     public int getOrder() {
