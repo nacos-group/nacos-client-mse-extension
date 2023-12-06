@@ -7,6 +7,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 
+import static com.alibaba.nacos.client.aliyun.AliyunConst.CIPHER_KMS_AES_128_PREFIX;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.CIPHER_KMS_AES_256_PREFIX;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.KMS_KEY_SPEC_AES_128;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.KMS_KEY_SPEC_AES_256;
+
 /**
  * @author rong
  */
@@ -18,14 +23,17 @@ public class KmsUtils {
      * KMS限流返回错误码
      */
     public final static String REJECTED_THROTTLING = "Rejected.Throttling";
+    
     /**
      * KMS服务不可用返回错误码
      */
     public final static String SERVICE_UNAVAILABLE_TEMPORARY = "ServiceUnavailableTemporary";
+    
     /**
      * KMS服务内部错误返回错误码
      */
     public final static String INTERNAL_FAILURE = "InternalFailure";
+    
     /**
      * KMS服务Socket连接超时错误码
      */
@@ -65,7 +73,8 @@ public class KmsUtils {
             try {
                 resultValue = Integer.parseInt(propertyValueString);
             } catch (Exception e) {
-                LOGGER.warn("parse {} failed: {}\n. use default value {}.", propertyName, e.getMessage(), defaultValueInt);
+                LOGGER.warn("parse {} failed: {}\n. use default value {}.", propertyName, e.getMessage(),
+                        defaultValueInt);
             }
         }
         return resultValue;
@@ -78,10 +87,19 @@ public class KmsUtils {
             try {
                 resultValue = Boolean.parseBoolean(propertyValueString);
             } catch (Exception e) {
-                LOGGER.warn("parse {} failed: {}\n. use default value {}.", propertyName, e.getMessage(), defaultValueInt);
+                LOGGER.warn("parse {} failed: {}\n. use default value {}.", propertyName, e.getMessage(),
+                        defaultValueInt);
             }
         }
         return resultValue;
     }
     
+    public static String getKeySpecByDataIdPrefix(String dataId) {
+        if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX)) {
+            return KMS_KEY_SPEC_AES_128;
+        } else if (dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)){
+            return KMS_KEY_SPEC_AES_256;
+        }
+        return null;
+    }
 }

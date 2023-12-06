@@ -63,20 +63,26 @@ public class KmsLocalCache {
     }
     
     public static class LocalCacheItem {
-        private String encryptedDataKey;
+        private final String encryptedDataKey;
         
-        private String encryptedContent;
+        private final String encryptedContent;
         
-        private String plainDataKey;
+        private final String plainDataKey;
         
-        private String plainContent;
+        private final String plainContent;
         
-        public LocalCacheItem() {}
-        
-        public LocalCacheItem(String encryptedDataKey, String encryptedContent, String plainDataKey, String plainContent) {
+        public LocalCacheItem(String encryptedDataKey, String encryptedContent, String plainDataKey) {
             this.encryptedDataKey = encryptedDataKey;
-            this.encryptedContent = encryptedContent;
             this.plainDataKey = plainDataKey;
+            this.encryptedContent = MD5Utils.md5Hex(encryptedContent, AliyunConst.ENCODE_UTF8);
+            this.plainContent = null;
+        }
+        
+        public LocalCacheItem(String encryptedContent, String plainContent) {
+            this.encryptedDataKey = null;
+            this.plainDataKey = null;
+            //TODO: 如果加密链路不做缓存机制，则这里也可以用MD5减少内存使用
+            this.encryptedContent = encryptedContent;
             this.plainContent = plainContent;
         }
         
@@ -84,32 +90,16 @@ public class KmsLocalCache {
             return encryptedDataKey;
         }
         
-        public void setEncryptedDataKey(String encryptedDataKey) {
-            this.encryptedDataKey = encryptedDataKey;
-        }
-        
         public String getEncryptedContent() {
             return encryptedContent;
-        }
-        
-        public void setEncryptedContent(String encryptedContent) {
-            this.encryptedContent = encryptedContent;
         }
         
         public String getPlainDataKey() {
             return plainDataKey;
         }
         
-        public void setPlainDataKey(String plainDataKey) {
-            this.plainDataKey = plainDataKey;
-        }
-        
         public String getPlainContent() {
             return plainContent;
-        }
-        
-        public void setPlainContent(String plainContent) {
-            this.plainContent = plainContent;
         }
         
         @Override

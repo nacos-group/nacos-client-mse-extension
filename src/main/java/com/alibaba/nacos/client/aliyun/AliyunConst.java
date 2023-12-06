@@ -13,7 +13,16 @@ public class AliyunConst {
     
     public static final String CONTENT = "content";
     
+    
     public static final String ENCRYPTED_DATA_KEY = "encryptedDataKey";
+    
+    public static final String ENCRYPTED_CONTENT = "encryptedContent";
+    
+    public static final String ENCRYPTED_RESULT = "encryptedResult";
+    
+    public static final String DECRYPTED_RESULT = "decryptedResult";
+    
+    public static final String CACHED_DECRYPTED_RESULT = "cachedDecryptedResult";
     
     public static final String CIPHER_PREFIX = "cipher-";
     
@@ -66,6 +75,8 @@ public class AliyunConst {
     public static final String NACOS_CONFIG_ENCRYPTION_KMS_LOCAL_CACHE_AFTER_WRITE_DURATION = "nacos.config.encryption.kms.local.cache.afterWriteDuration";
     
     public static final int DEFAULT_KMS_LOCAL_CACHE_AFTER_WRITE_DURATION_SECONDS = 60 * 60 * 24;
+    
+    public static final String STRING_VALUE_BLANK_ERROR_MSG_FORMAT = "[config: %s] %s. %s is null or empty.";
 
     public static String formatHelpMessage(String errorMessage) {
         return String.format("%s, for more information, please check: %s",

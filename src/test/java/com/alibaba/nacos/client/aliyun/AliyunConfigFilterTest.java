@@ -7,6 +7,7 @@ import com.alibaba.nacos.client.config.filter.impl.ConfigFilterChainManager;
 import com.alibaba.nacos.client.config.filter.impl.ConfigRequest;
 import com.alibaba.nacos.client.config.filter.impl.ConfigResponse;
 import com.aliyuncs.exceptions.ClientException;
+import com.aliyuncs.kms.model.v20160120.GenerateDataKeyResponse;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,9 @@ import java.util.function.Supplier;
 import static com.alibaba.nacos.client.aliyun.AliyunConst.CIPHER_KMS_AES_128_PREFIX;
 import static com.alibaba.nacos.client.aliyun.AliyunConst.CIPHER_KMS_AES_256_PREFIX;
 import static com.alibaba.nacos.client.aliyun.AliyunConst.CIPHER_PREFIX;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.ENCODE_UTF8;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.KMS_DEFAULT_KEY_ID_VALUE;
+import static com.alibaba.nacos.client.aliyun.AliyunConst.KMS_KEY_SPEC_AES_256;
 
 public class AliyunConfigFilterTest {
     private static final String ENCRYPTED_DATA_KEY = "encryptedDataKey";
@@ -37,6 +41,10 @@ public class AliyunConfigFilterTest {
     public static final String content = "crypt";
 
     public static final String group = "default";
+    
+    public static final String ak = "LTAIxxx";
+    
+    public static final String sk = "EdPqxxx";
 
     @BeforeEach
     public void preset() {
@@ -56,8 +64,8 @@ public class AliyunConfigFilterTest {
         properties.setProperty("kmsEndpoint", "");
         properties.setProperty("regionId", "cn-beijing");
         properties.setProperty("kms_region_id", "cn-beijing");
-        properties.setProperty("accessKey", "LTAxxxx1E6");
-        properties.setProperty("secretKey", "kr6JxxxsD6");
+        properties.setProperty("accessKey", ak);
+        properties.setProperty("secretKey", sk);
         properties.setProperty("keyId", "alias/acs/mse");
         executeConfigFilter();
     }
@@ -73,6 +81,46 @@ public class AliyunConfigFilterTest {
 //        properties.setProperty("kmsCaFilePath", "/ca.pem");
 //        executeConfigFilter();
 //    }
+    
+    @Test
+    public void testAliyunConfigFilterWithKmsV1UsingLocalCache()
+            throws NoSuchFieldException, InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+        properties.setProperty(AliyunConst.KMS_VERSION_KEY, AliyunConst.KmsVersion.Kmsv1.getValue());
+        //ignore kmsEndpoint
+        properties.setProperty("kmsEndpoint", "");
+        properties.setProperty("regionId", "cn-beijing");
+        properties.setProperty("kms_region_id", "cn-beijing");
+        properties.setProperty("accessKey", ak);
+        properties.setProperty("secretKey", sk);
+        properties.setProperty("keyId", "alias/acs/mse");
+        executeConfigFilterWithCacheAfterSet();
+    }
+    
+    // must be running in vpc
+    //    @Test
+    //    public void testAliyunConfigFilterWithKmsV3UsingLocalCache() {
+    //        properties.setProperty(AliyunConst.KMS_VERSION_KEY, AliyunConst.KmsVersion.Kmsv3.getValue());
+    //        properties.setProperty("keyId", "alias/chasu");
+    //        properties.setProperty("kmsEndpoint", "kst-bjxxxxxxxxxc.cryptoservice.kms.aliyuncs.com");
+    //        properties.setProperty("kmsClientKeyFilePath", "/client_key.json");
+    //        properties.setProperty("kmsPasswordKey", "19axxx213");
+    //        properties.setProperty("kmsCaFilePath", "/ca.pem");
+    //        executeConfigFilterWithCacheAfterSet();
+    //    }
+    
+    @Test
+    public void testAliyunConfigFilterEncryptIdempotentOfTheSameConfig() throws Exception {
+        properties.setProperty(AliyunConst.KMS_VERSION_KEY, AliyunConst.KmsVersion.Kmsv1.getValue());
+        //ignore kmsEndpoint
+        properties.setProperty("kmsEndpoint", "");
+        properties.setProperty("regionId", "cn-beijing");
+        properties.setProperty("kms_region_id", "cn-beijing");
+        properties.setProperty("accessKey", ak);
+        properties.setProperty("secretKey", sk);
+        properties.setProperty("keyId", "alias/acs/mse");
+        properties.setProperty(AliyunConst.NACOS_CONFIG_ENCRYPTION_KMS_LOCAL_CACHE_SWITCH, "false");
+        verifyEncryptedConfigByKmsIdempotent();
+    }
     
     @Test
     public void testLocallyRunWithRetryTimesAndTimeout()
@@ -134,31 +182,6 @@ public class AliyunConfigFilterTest {
         Assertions.assertEquals(6, atomicInteger.get());
     }
     
-    @Test
-    public void testAliyunConfigFilterWithKmsV1UsingLocalCache()
-            throws NoSuchFieldException, InvocationTargetException, IllegalAccessException, NoSuchMethodException {
-        properties.setProperty(AliyunConst.KMS_VERSION_KEY, AliyunConst.KmsVersion.Kmsv1.getValue());
-        //ignore kmsEndpoint
-        properties.setProperty("kmsEndpoint", "");
-        properties.setProperty("regionId", "cn-beijing");
-        properties.setProperty("kms_region_id", "cn-beijing");
-        properties.setProperty("accessKey", "LTAxxx");
-        properties.setProperty("secretKey", "EdPxxx");
-        properties.setProperty("keyId", "alias/acs/mse");
-        executeConfigFilterWithCacheAfterSet();
-    }
-    
-    // must be running in vpc
-    //    @Test
-    //    public void testAliyunConfigFilterWithKmsV3UsingLocalCache() {
-    //        properties.setProperty(AliyunConst.KMS_VERSION_KEY, AliyunConst.KmsVersion.Kmsv3.getValue());
-    //        properties.setProperty("keyId", "alias/chasu");
-    //        properties.setProperty("kmsEndpoint", "kst-bjxxxxxxxxxc.cryptoservice.kms.aliyuncs.com");
-    //        properties.setProperty("kmsClientKeyFilePath", "/client_key.json");
-    //        properties.setProperty("kmsPasswordKey", "19axxx213");
-    //        properties.setProperty("kmsCaFilePath", "/ca.pem");
-    //        executeConfigFilterWithCacheAfterSet();
-    //    }
     
     private void executeConfigFilterWithCacheAfterSet()
             throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
@@ -190,7 +213,7 @@ public class AliyunConfigFilterTest {
                 configFilterChainManager.doFilter(configRequest, null);
                 KmsLocalCache.LocalCacheItem localCacheItem = kmsLocalCache.get(groupKey);
                 if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-                    Assertions.assertEquals(localCacheItem.getEncryptedContent(), configRequest.getContent());
+                    Assertions.assertEquals(localCacheItem.getEncryptedContent(), MD5Utils.md5Hex(configRequest.getContent(), ENCODE_UTF8));
                     Assertions.assertEquals(localCacheItem.getEncryptedDataKey(), configRequest.getEncryptedDataKey());
                 } else if (dataId.startsWith(CIPHER_PREFIX)) {
                     Assertions.assertEquals(localCacheItem.getEncryptedContent(), configRequest.getContent());
@@ -209,12 +232,12 @@ public class AliyunConfigFilterTest {
                 configFilterChainManager.doFilter(null, configResponse);
                 KmsLocalCache.LocalCacheItem localCacheItem = kmsLocalCache.get(groupKey);
                 if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-                    Assertions.assertEquals(localCacheItem.getEncryptedContent(), configRequest.getContent());
+                    Assertions.assertEquals(localCacheItem.getEncryptedContent(), MD5Utils.md5Hex(configRequest.getContent(), ENCODE_UTF8));
                     Assertions.assertEquals(localCacheItem.getEncryptedDataKey(), configRequest.getEncryptedDataKey());
-                    Assertions.assertEquals(content, configResponse.getContent());
                 } else if (dataId.startsWith(CIPHER_PREFIX)) {
                     Assertions.assertEquals(localCacheItem.getPlainContent(), configResponse.getContent());
                 }
+                Assertions.assertEquals(content, configResponse.getContent());
             } catch (NacosException e) {
                 throw new RuntimeException(e);
             }
@@ -223,8 +246,6 @@ public class AliyunConfigFilterTest {
 
     private void executeConfigFilter() {
        ConfigFilterChainManager configFilterChainManager = new ConfigFilterChainManager(properties);
-       AliyunConfigFilter aliyunConfigFilter = new AliyunConfigFilter();
-       configFilterChainManager.addFilter(aliyunConfigFilter);
         
         for (String dataId : dataIdList) {
             ConfigRequest configRequest = new ConfigRequest();
@@ -252,5 +273,53 @@ public class AliyunConfigFilterTest {
                 throw new RuntimeException(e);
             }
         }
+    }
+    
+    private void verifyEncryptedConfigByKmsIdempotent() throws Exception {
+        ConfigFilterChainManager configFilterChainManager = new ConfigFilterChainManager(properties);
+        
+        String dataId = "cipher-crypt";
+        ConfigRequest configRequest = new ConfigRequest();
+        configRequest.setGroup(group);
+        configRequest.setDataId(dataId);
+        configRequest.setContent(content);
+        ConfigRequest configRequest1 = new ConfigRequest();
+        configRequest1.setGroup(group);
+        configRequest1.setDataId(dataId);
+        configRequest1.setContent(content);
+        String encryptedContent;
+        String encryptedContent1;
+        try {
+            configFilterChainManager.doFilter(configRequest, null);
+            configFilterChainManager.doFilter(configRequest1, null);
+            encryptedContent = configRequest.getContent();
+            encryptedContent1 = configRequest1.getContent();
+            Assertions.assertNotEquals(encryptedContent, encryptedContent1);
+        } catch (NacosException e) {
+            e.printStackTrace();
+        }
+        
+        Class<? extends ConfigFilterChainManager> configFilterChainManagerClass =  configFilterChainManager.getClass();
+        Field filtersField = configFilterChainManagerClass.getDeclaredField("filters");
+        filtersField.setAccessible(true);
+        List<IConfigFilter> filters = (List<IConfigFilter>) filtersField.get(configFilterChainManager);
+        
+        AliyunConfigFilter aliyunConfigFilter = (AliyunConfigFilter) filters.get(1);
+        
+        GenerateDataKeyResponse generateDataKeyResponse = aliyunConfigFilter.generateDataKey(KMS_DEFAULT_KEY_ID_VALUE,
+                KMS_KEY_SPEC_AES_256);
+        GenerateDataKeyResponse generateDataKeyResponse1 = aliyunConfigFilter.generateDataKey(KMS_DEFAULT_KEY_ID_VALUE,
+                KMS_KEY_SPEC_AES_256);
+        
+        Assertions.assertNotEquals(generateDataKeyResponse1.getPlaintext(), generateDataKeyResponse.getPlaintext());
+        
+        Assertions.assertNotEquals(
+                AesUtils.encrypt(content, generateDataKeyResponse.getPlaintext(), ENCODE_UTF8),
+                AesUtils.encrypt(content, generateDataKeyResponse1.getPlaintext(), ENCODE_UTF8));
+        
+        Assertions.assertEquals(
+                AesUtils.encrypt(content, generateDataKeyResponse.getPlaintext(), ENCODE_UTF8),
+                AesUtils.encrypt(content, generateDataKeyResponse.getPlaintext(), ENCODE_UTF8));
+        
     }
 }
