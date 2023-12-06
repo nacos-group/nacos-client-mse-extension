@@ -13,16 +13,7 @@ public class AliyunConst {
     
     public static final String CONTENT = "content";
     
-    
     public static final String ENCRYPTED_DATA_KEY = "encryptedDataKey";
-    
-    public static final String ENCRYPTED_CONTENT = "encryptedContent";
-    
-    public static final String ENCRYPTED_RESULT = "encryptedResult";
-    
-    public static final String DECRYPTED_RESULT = "decryptedResult";
-    
-    public static final String CACHED_DECRYPTED_RESULT = "cachedDecryptedResult";
     
     public static final String CIPHER_PREFIX = "cipher-";
     
