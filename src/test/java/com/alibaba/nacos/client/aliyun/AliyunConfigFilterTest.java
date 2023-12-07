@@ -213,7 +213,7 @@ public class AliyunConfigFilterTest {
                 configFilterChainManager.doFilter(configRequest, null);
                 KmsLocalCache.LocalCacheItem localCacheItem = kmsLocalCache.get(groupKey);
                 if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-                    Assertions.assertEquals(localCacheItem.getEncryptedContent(), MD5Utils.md5Hex(configRequest.getContent(), ENCODE_UTF8));
+                    Assertions.assertEquals(localCacheItem.getEncryptedContentMD5(), MD5Utils.md5Hex(configRequest.getContent(), ENCODE_UTF8));
                     Assertions.assertEquals(localCacheItem.getEncryptedDataKey(), configRequest.getEncryptedDataKey());
                 } else if (dataId.startsWith(CIPHER_PREFIX)) {
                     Assertions.assertEquals(localCacheItem.getEncryptedContent(), configRequest.getContent());
@@ -232,7 +232,7 @@ public class AliyunConfigFilterTest {
                 configFilterChainManager.doFilter(null, configResponse);
                 KmsLocalCache.LocalCacheItem localCacheItem = kmsLocalCache.get(groupKey);
                 if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-                    Assertions.assertEquals(localCacheItem.getEncryptedContent(), MD5Utils.md5Hex(configRequest.getContent(), ENCODE_UTF8));
+                    Assertions.assertEquals(localCacheItem.getEncryptedContentMD5(), MD5Utils.md5Hex(configRequest.getContent(), ENCODE_UTF8));
                     Assertions.assertEquals(localCacheItem.getEncryptedDataKey(), configRequest.getEncryptedDataKey());
                 } else if (dataId.startsWith(CIPHER_PREFIX)) {
                     Assertions.assertEquals(localCacheItem.getPlainContent(), configResponse.getContent());

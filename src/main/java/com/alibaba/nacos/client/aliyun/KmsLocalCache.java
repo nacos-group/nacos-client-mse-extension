@@ -33,7 +33,7 @@ public class KmsLocalCache {
     }
     
     public LocalCacheItem get(String key) {
-        if (StringUtils.isEmpty(key)) {
+        if (StringUtils.isBlank(key)) {
             return null;
         }
         try {
@@ -45,7 +45,7 @@ public class KmsLocalCache {
     }
     
     public void put(String key, LocalCacheItem localCacheItem) {
-        if (StringUtils.isEmpty(key) || localCacheItem == null) {
+        if (StringUtils.isBlank(key) || localCacheItem == null) {
             return;
         }
         try {
@@ -56,7 +56,7 @@ public class KmsLocalCache {
     }
     
     public void remove(String key) {
-        if (StringUtils.isEmpty(key)) {
+        if (StringUtils.isBlank(key)) {
             return;
         }
         this.encryptedContentCache.invalidate(key);
@@ -67,6 +67,8 @@ public class KmsLocalCache {
         
         private final String encryptedContent;
         
+        private final String encryptedContentMD5;
+        
         private final String plainDataKey;
         
         private final String plainContent;
@@ -74,7 +76,8 @@ public class KmsLocalCache {
         public LocalCacheItem(String encryptedDataKey, String encryptedContent, String plainDataKey) {
             this.encryptedDataKey = encryptedDataKey;
             this.plainDataKey = plainDataKey;
-            this.encryptedContent = MD5Utils.md5Hex(encryptedContent, AliyunConst.ENCODE_UTF8);
+            this.encryptedContent = null;
+            this.encryptedContentMD5 = MD5Utils.md5Hex(encryptedContent, AliyunConst.ENCODE_UTF8);
             this.plainContent = null;
         }
         
@@ -83,6 +86,7 @@ public class KmsLocalCache {
             this.plainDataKey = null;
             //TODO: 如果加密链路不做缓存机制，则这里也可以用MD5减少内存使用
             this.encryptedContent = encryptedContent;
+            this.encryptedContentMD5 = null;
             this.plainContent = plainContent;
         }
         
@@ -102,11 +106,11 @@ public class KmsLocalCache {
             return plainContent;
         }
         
-        @Override
-        public String toString() {
-            return "LocalCacheItem{" + "encryptedDataKey='" + encryptedDataKey + '\'' + ", encryptedContent='"
-                    + encryptedContent + '\'' + ", plainDataKey='" + plainDataKey + '\'' + ", plainContent='"
-                    + plainContent + '\'' + '}';
+        public String getEncryptedContentMD5() {
+            return encryptedContentMD5;
         }
+        
+        
+        
     }
 }

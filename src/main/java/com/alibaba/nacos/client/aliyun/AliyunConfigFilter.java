@@ -124,6 +124,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         this.isUseLocalCache = KmsUtils.parsePropertyValue(properties, AliyunConst.NACOS_CONFIG_ENCRYPTION_KMS_LOCAL_CACHE_SWITCH,
                 AliyunConst.DEFAULT_KMS_LOCAL_CACHE_SWITCH);
         if (this.isUseLocalCache()) {
+            LOGGER.info("using kms encryption local cache.");
             this.kmsLocalCache = new KmsLocalCache(properties);
         }
         
@@ -431,7 +432,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             if (requestKmsException != null && StringUtils.isBlank(result)) {
                 throw requestKmsException;
             } else if (StringUtils.isBlank(result)) {
-                blankResultErrorMsg += "and no kms encryption local cache.";
+                blankResultErrorMsg += " and no kms encryption local cache.";
             }
         }
         
@@ -700,7 +701,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     private boolean checkIfKmsCacheItemValidByEncrypt(KmsLocalCache.LocalCacheItem localCacheItem, String dataId, String plainContent) {
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
             return !StringUtils.isBlank(localCacheItem.getEncryptedDataKey())
-                    && !StringUtils.isBlank(localCacheItem.getEncryptedContent());
+                    && !StringUtils.isBlank(localCacheItem.getEncryptedContentMD5());
         } else if (dataId.startsWith(CIPHER_PREFIX)) {
             return !StringUtils.isBlank(localCacheItem.getEncryptedContent())
                     && !StringUtils.isBlank(localCacheItem.getPlainContent())
@@ -712,10 +713,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     private boolean checkIfKmsCacheItemValidByDecrypt(KmsLocalCache.LocalCacheItem localCacheItem, String dataId, String encryptedDataKey, String encryptedContent) {
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
             return !StringUtils.isBlank(localCacheItem.getEncryptedDataKey())
-                    && !StringUtils.isBlank(localCacheItem.getEncryptedContent())
+                    && !StringUtils.isBlank(localCacheItem.getEncryptedContentMD5())
                     && !StringUtils.isBlank(localCacheItem.getPlainDataKey())
                     && localCacheItem.getEncryptedDataKey().equals(encryptedDataKey)
-                    && localCacheItem.getEncryptedContent().equals(MD5Utils.md5Hex(encryptedContent, ENCODE_UTF8));
+                    && localCacheItem.getEncryptedContentMD5().equals(MD5Utils.md5Hex(encryptedContent, ENCODE_UTF8));
         } else if (dataId.startsWith(CIPHER_PREFIX)) {
             return !StringUtils.isBlank(localCacheItem.getEncryptedContent())
                     && !StringUtils.isBlank(localCacheItem.getPlainContent())
