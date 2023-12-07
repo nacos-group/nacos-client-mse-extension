@@ -565,6 +565,9 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     private void protectKeyId(String keyId) {
         if (!addedKeys.contains(keyId)) {
             synchronized (addedKeys) {
+                if (addedKeys.contains(keyId)) {
+                    return;
+                }
                 addedKeys.add(keyId);
                 asyncProcessor.addTack(new Runnable() {
                     @Override
@@ -579,13 +582,16 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                             try {
                                 DescribeKeyResponse describeKeyResponse = kmsClient.getAcsResponse(describeKeyRequest);
                                 if (describeKeyResponse.getKeyMetadata()!= null) {
+                                    if (!"Enabled".equals(describeKeyResponse.getKeyMetadata().getKeyState())) {
+                                        throw new RuntimeException("Key not available");
+                                    }
                                     String arn = describeKeyResponse.getKeyMetadata().getArn();
                                     LOGGER.info("set deletion protection for keyId[{}], arn[{}]", keyId, arn);
 
                                     SetDeletionProtectionRequest setDeletionProtectionRequest = new SetDeletionProtectionRequest();
                                     setDeletionProtectionRequest.setProtectedResourceArn(arn);
                                     setDeletionProtectionRequest.setEnableDeletionProtection(true);
-                                    setDeletionProtectionRequest.setDeletionProtectionDescription("key is used by nacos-client");
+                                    setDeletionProtectionRequest.setDeletionProtectionDescription("key is used by mse");
                                     try {
                                         kmsClient.getAcsResponse(setDeletionProtectionRequest);
                                     } catch (ClientException e) {
@@ -701,7 +707,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     private boolean checkIfKmsCacheItemValidByEncrypt(KmsLocalCache.LocalCacheItem localCacheItem, String dataId, String plainContent) {
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
             return !StringUtils.isBlank(localCacheItem.getEncryptedDataKey())
-                    && !StringUtils.isBlank(localCacheItem.getEncryptedContentMD5());
+                    && !StringUtils.isBlank(localCacheItem.getPlainDataKey());
         } else if (dataId.startsWith(CIPHER_PREFIX)) {
             return !StringUtils.isBlank(localCacheItem.getEncryptedContent())
                     && !StringUtils.isBlank(localCacheItem.getPlainContent())

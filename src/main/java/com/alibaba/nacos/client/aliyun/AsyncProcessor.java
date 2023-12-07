@@ -13,7 +13,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class AsyncProcessor {
 
     private static final int QUEUE_INITIAL_CAPACITY = 8;
-
+    
+    private static final int DEFAULT_RETRY_INTERVAL_MILLISECONDS_WHEN_EXCEPTION = 10 * 1000;
+    
     private static final String DEFAULT_PROCESSOR_NAME = "asyncProcessor";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AsyncProcessor.class);
@@ -23,7 +25,7 @@ public class AsyncProcessor {
     private final AtomicBoolean closed;
 
     private final String name;
-
+    
     public AsyncProcessor() {
         this(QUEUE_INITIAL_CAPACITY, DEFAULT_PROCESSOR_NAME);
     }
@@ -32,7 +34,7 @@ public class AsyncProcessor {
         this.queue = new ArrayBlockingQueue<Runnable>(queueSize);
         this.closed = new AtomicBoolean(false);
         this.name = name;
-        (new InnerWorker(name)).start();
+        (new InnerWorker(name, this)).start();
     }
 
     public void addTack(Runnable task) {
@@ -53,20 +55,33 @@ public class AsyncProcessor {
     }
 
     private class InnerWorker extends Thread {
-        InnerWorker(String name) {
+        AsyncProcessor outterAsyncProcessor;
+        
+        InnerWorker(String name, AsyncProcessor outterAsyncProcessor) {
             super(name);
+            this.outterAsyncProcessor = outterAsyncProcessor;
         }
         @Override
         public void run() {
             while (!closed.get()) {
+                Runnable task = null;
                 try {
-                    Runnable task = queue.take();
+                    task = queue.take();
                     long begin = System.currentTimeMillis();
                     task.run();
                     long duration = System.currentTimeMillis();
                     LOGGER.info("runner[{}] executed task {} cost {} ms", getName(), task, duration - begin);
                 } catch (Exception e) {
-                    LOGGER.error(e.toString(), e);
+                    LOGGER.error(String.format("task running failed with retry milli interval %d. exception msg: %s.",
+                            DEFAULT_RETRY_INTERVAL_MILLISECONDS_WHEN_EXCEPTION, e.toString()), e);
+                    try {
+                        Thread.sleep(DEFAULT_RETRY_INTERVAL_MILLISECONDS_WHEN_EXCEPTION);
+                    } catch (InterruptedException ex) {
+                        LOGGER.error(e.toString(), e);
+                    }
+                    if (this.outterAsyncProcessor != null && task != null) {
+                        this.outterAsyncProcessor.addTack(task);
+                    }
                 }
             }
         }
