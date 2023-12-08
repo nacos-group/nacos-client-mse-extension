@@ -427,7 +427,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                 result = encrypt(keyId, plainContent);
             }
         } catch (Exception e) {
-            //use local cache protection
+            //not use local cache protection
             LOGGER.error("encrypt config:[{}] failed by using kms service: {}.",
                     this.getGroupKey2(dataId, group), e.getMessage(), e);
             throw e;
@@ -484,24 +484,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         if (!this.isLocalCacheAvailable()) {
             return;
         }
-        KmsLocalCache.LocalCacheItem localCacheItem = this.getKmsLocalCache().get(this.getGroupKey2(dataId, group));
-        
         if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
-            if (localCacheItem == null) {
-                getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(encryptedDataKey, encryptedContent, plainDataKey));
-            } else {
-                if (!StringUtils.isBlank(encryptedDataKey) && !StringUtils.isBlank(plainDataKey)) {
-                    getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(encryptedDataKey, encryptedContent, plainDataKey));
-                } else {
-                    getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(
-                            localCacheItem.getEncryptedDataKey(), encryptedContent, localCacheItem.getPlainDataKey()));
-                }
-            }
+            getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(encryptedDataKey, encryptedContent, plainDataKey));
         } else if(dataId.startsWith(CIPHER_PREFIX)) {
-            if (localCacheItem == null
-                    || (!StringUtils.isBlank(encryptedContent) && !StringUtils.isBlank(plainContent))) {
-                getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(encryptedContent, plainContent));
-            }
+            getKmsLocalCache().put(this.getGroupKey2(dataId, group), new KmsLocalCache.LocalCacheItem(encryptedContent, plainContent));
         }
     }
 
@@ -736,9 +722,9 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
                     && localCacheItem.getEncryptedDataKey().equals(encryptedDataKey)
                     && localCacheItem.getEncryptedContentMD5().equals(MD5Utils.md5Hex(encryptedContent, ENCODE_UTF8));
         } else if (dataId.startsWith(CIPHER_PREFIX)) {
-            return !StringUtils.isBlank(localCacheItem.getEncryptedContent())
+            return !StringUtils.isBlank(localCacheItem.getEncryptedContentMD5())
                     && !StringUtils.isBlank(localCacheItem.getPlainContent())
-                    && localCacheItem.getEncryptedContent().equals(encryptedContent);
+                    && localCacheItem.getEncryptedContentMD5().equals(MD5Utils.md5Hex(encryptedContent, ENCODE_UTF8));
         }
         return false;
     }

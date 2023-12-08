@@ -84,9 +84,8 @@ public class KmsLocalCache {
         public LocalCacheItem(String encryptedContent, String plainContent) {
             this.encryptedDataKey = null;
             this.plainDataKey = null;
-            //TODO: 如果加密链路不做缓存机制，则这里也可以用MD5减少内存使用
-            this.encryptedContent = encryptedContent;
-            this.encryptedContentMD5 = null;
+            this.encryptedContent = null;
+            this.encryptedContentMD5 = MD5Utils.md5Hex(encryptedContent, AliyunConst.ENCODE_UTF8);
             this.plainContent = plainContent;
         }
         
