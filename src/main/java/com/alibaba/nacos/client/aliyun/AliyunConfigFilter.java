@@ -84,6 +84,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     private boolean isUseLocalCache;
     
     private KmsLocalCache kmsLocalCache;
+    
+    private boolean localCacheTestMode = false;
 
     @Override
     public void init(Properties properties) {
@@ -124,6 +126,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         this.isUseLocalCache = KmsUtils.parsePropertyValue(properties, AliyunConst.NACOS_CONFIG_ENCRYPTION_KMS_LOCAL_CACHE_SWITCH,
                 AliyunConst.DEFAULT_KMS_LOCAL_CACHE_SWITCH);
         if (this.isUseLocalCache()) {
+            this.localCacheTestMode = KmsUtils.parsePropertyValue(properties, AliyunConst.NACOS_CONFIG_ENCRYPTION_KMS_LOCAL_CACHE_TEST_MODE, false);
             LOGGER.info("using kms encryption local cache.");
             this.kmsLocalCache = new KmsLocalCache(properties);
         }
@@ -369,6 +372,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             requestKmsException= e;
         }
         
+        if (this.localCacheTestMode) {
+            requestKmsException = requestKmsException == null ? new RuntimeException("test mode exception to use local cache") : requestKmsException;
+        }
+        
         if (requestKmsException != null || StringUtils.isBlank(result)) {
             LOGGER.warn("decrypt config [{}] failed with exception or empty result by using kms service. try to use local cache.", this.getGroupKey2(dataId, group));
             result = getDecryptedContentByUsingLocalCache(group, dataId, encryptedDataKey, encryptedContent);
@@ -395,11 +402,11 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         String dataId = (String) configRequest.getParameter(DATA_ID);
         String group = (String) configRequest.getParameter(GROUP);
         String plainContent = (String) configRequest.getParameter(CONTENT);
-        String plainDataKey = null;
-        String encryptedDataKey = null;
+        String plainDataKey;
+        String encryptedDataKey;
         String result = null; //encryptedContent
-        Exception requestKmsException = null;
         String blankResultErrorMsg = "encrypt from kms failed.";
+//        Exception requestKmsException = null;
         
         //prefer to use kms service
         try {
@@ -423,26 +430,29 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
             //use local cache protection
             LOGGER.error("encrypt config:[{}] failed by using kms service: {}.",
                     this.getGroupKey2(dataId, group), e.getMessage(), e);
-            requestKmsException = e;
+            throw e;
+//            requestKmsException = e;
         }
         
-        if (requestKmsException != null || StringUtils.isBlank(result)) {
-            LOGGER.warn("encrypt config [{}] failed with exception or empty result by using kms service. will use local cache.", this.getGroupKey2(dataId, group));
-            result = getEncryptedContentByUsingLocalCache(group, dataId, plainContent, configRequest);
-            if (requestKmsException != null && StringUtils.isBlank(result)) {
-                throw requestKmsException;
-            } else if (StringUtils.isBlank(result)) {
-                blankResultErrorMsg += " and no kms encryption local cache.";
-            }
-        }
+        //using cache when encrypt failed by using kms service
+//        if (requestKmsException != null || StringUtils.isBlank(result)) {
+//            LOGGER.warn("encrypt config [{}] failed with exception or empty result by using kms service. will use local cache.", this.getGroupKey2(dataId, group));
+//            result = getEncryptedContentByUsingLocalCache(group, dataId, plainContent, configRequest);
+//            if (requestKmsException != null && StringUtils.isBlank(result)) {
+//                throw requestKmsException;
+//            } else if (StringUtils.isBlank(result)) {
+//                blankResultErrorMsg += " and no kms encryption local cache.";
+//            }
+//        }
         
         throwExceptionIfStringBlankWithErrorKey(result, this.getGroupKey2(dataId, group), "encrypt failed", blankResultErrorMsg);
         
         //update local cache
-        this.updateLocalCacheItem(group, dataId, encryptedDataKey, result, plainDataKey, plainContent);
+//        this.updateLocalCacheItem(group, dataId, encryptedDataKey, result, plainDataKey, plainContent);
         return result;
     }
     
+    @Deprecated
     private String getEncryptedContentByUsingLocalCache(String group, String dataId, String plainContent, IConfigRequest configRequest)
             throws Exception {
         KmsLocalCache.LocalCacheItem localCacheItem = getLocalCacheItem(group, dataId, plainContent);
@@ -471,7 +481,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         return null;
     }
     private void updateLocalCacheItem(String group, String dataId, String encryptedDataKey, String encryptedContent, String plainDataKey, String plainContent) {
-        if (!this.isUseLocalCache() || this.getKmsLocalCache() == null) {
+        if (!this.isLocalCacheAvailable()) {
             return;
         }
         KmsLocalCache.LocalCacheItem localCacheItem = this.getKmsLocalCache().get(this.getGroupKey2(dataId, group));
@@ -665,9 +675,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         return this.kmsLocalCache;
     }
     
+    //using by decrypt
     private KmsLocalCache.LocalCacheItem getLocalCacheItem(String group, String dataId, String encryptDataKey, String encryptedContent) {
         //check if open local cache
-        if (!this.isUseLocalCache() || this.getKmsLocalCache() == null) {
+        if (!this.isLocalCacheAvailable()) {
             return null;
         }
         
@@ -684,9 +695,10 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         return localCacheItem;
     }
     
+    //using by encrypt
     private KmsLocalCache.LocalCacheItem getLocalCacheItem(String group, String dataId, String plainText) {
         //check if open local cache
-        if (!this.isUseLocalCache() || this.getKmsLocalCache() == null) {
+        if (!this.isLocalCacheAvailable()) {
             return null;
         }
         
@@ -776,6 +788,9 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         }
     }
     
+    private boolean isLocalCacheAvailable() {
+        return this.isUseLocalCache() && this.getKmsLocalCache()!= null;
+    }
     @Override
     public int getOrder() {
         return 1;

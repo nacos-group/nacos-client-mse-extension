@@ -67,6 +67,8 @@ public class AliyunConst {
     
     public static final int DEFAULT_KMS_LOCAL_CACHE_AFTER_WRITE_DURATION_SECONDS = 60 * 60 * 24;
     
+    public static final String NACOS_CONFIG_ENCRYPTION_KMS_LOCAL_CACHE_TEST_MODE = "nacos.config.encryption.kms.local.cache.testMode";
+    
     public static final String STRING_VALUE_BLANK_ERROR_MSG_FORMAT = "[config: %s] %s. %s is null or empty.";
 
     public static String formatHelpMessage(String errorMessage) {
