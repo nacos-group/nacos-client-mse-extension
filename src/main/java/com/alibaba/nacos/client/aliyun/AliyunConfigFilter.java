@@ -402,8 +402,8 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         String dataId = (String) configRequest.getParameter(DATA_ID);
         String group = (String) configRequest.getParameter(GROUP);
         String plainContent = (String) configRequest.getParameter(CONTENT);
-        String plainDataKey;
-        String encryptedDataKey;
+        String plainDataKey = null;
+        String encryptedDataKey = null;
         String result = null; //encryptedContent
         String blankResultErrorMsg = "encrypt from kms failed.";
 //        Exception requestKmsException = null;
@@ -448,7 +448,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         throwExceptionIfStringBlankWithErrorKey(result, this.getGroupKey2(dataId, group), "encrypt failed", blankResultErrorMsg);
         
         //update local cache
-//        this.updateLocalCacheItem(group, dataId, encryptedDataKey, result, plainDataKey, plainContent);
+        this.updateLocalCacheItem(group, dataId, encryptedDataKey, result, plainDataKey, plainContent);
         return result;
     }
     
