@@ -195,15 +195,13 @@ public class AliyunConfigFilterTest {
         
         Class<AliyunConfigFilter> aliyunConfigFilterClass = AliyunConfigFilter.class;
         
-        Method getGroupKey2 = aliyunConfigFilterClass.getDeclaredMethod("getGroupKey2", String.class, String.class);
-        getGroupKey2.setAccessible(true);
         Field kmsLocalCacheField = aliyunConfigFilterClass.getDeclaredField("kmsLocalCache");
         kmsLocalCacheField.setAccessible(true);
         
         KmsLocalCache kmsLocalCache = (KmsLocalCache) kmsLocalCacheField.get(aliyunConfigFilter);
         
         for (String dataId : dataIdList) {
-            String groupKey = (String) getGroupKey2.invoke(aliyunConfigFilter, dataId, group);
+            String groupKey = GroupKeyUtils.getGroupKey2(dataId, group);
             kmsLocalCache.remove(groupKey);
             ConfigRequest configRequest = new ConfigRequest();
             configRequest.setGroup(group);
