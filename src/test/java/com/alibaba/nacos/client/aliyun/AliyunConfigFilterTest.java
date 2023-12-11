@@ -242,6 +242,33 @@ public class AliyunConfigFilterTest {
             } catch (NacosException e) {
                 throw new RuntimeException(e);
             }
+            
+            Field localCacheTestModeField = aliyunConfigFilterClass.getDeclaredField("localCacheTestMode");
+            localCacheTestModeField.setAccessible(true);
+            localCacheTestModeField.set(aliyunConfigFilter, true);
+            ConfigResponse configResponse1 = new ConfigResponse();
+            configResponse1.setGroup(group);
+            configResponse1.setDataId(dataId);
+            configResponse1.setEncryptedDataKey((String) configRequest.getParameter(ENCRYPTED_DATA_KEY));
+            configResponse1.setContent((String) configRequest.getParameter(CONTENT));
+            
+            try {
+                configFilterChainManager.doFilter(null, configResponse1);
+                KmsLocalCache.LocalCacheItem localCacheItem = kmsLocalCache.get(groupKey);
+                if (dataId.startsWith(CIPHER_KMS_AES_128_PREFIX) || dataId.startsWith(CIPHER_KMS_AES_256_PREFIX)) {
+                    Assertions.assertEquals(localCacheItem.getEncryptedContentMD5(), MD5Utils.md5Hex(configRequest.getContent(), ENCODE_UTF8));
+                    Assertions.assertEquals(localCacheItem.getEncryptedDataKey(), configRequest.getEncryptedDataKey());
+                    Assertions.assertEquals(localCacheItem.getEncryptedDataKey(), configResponse1.getEncryptedDataKey());
+                } else if (dataId.startsWith(CIPHER_PREFIX)) {
+                    Assertions.assertEquals(localCacheItem.getPlainContent(), configResponse1.getContent());
+                    Assertions.assertEquals(localCacheItem.getEncryptedContentMD5(), MD5Utils.md5Hex(configRequest.getContent(), ENCODE_UTF8));
+                }
+                Assertions.assertEquals(content, configResponse1.getContent());
+            } catch (NacosException e) {
+                throw new RuntimeException(e);
+            } finally {
+                localCacheTestModeField.set(aliyunConfigFilter, false);
+            }
         }
     }
 

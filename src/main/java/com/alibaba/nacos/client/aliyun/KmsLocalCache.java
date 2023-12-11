@@ -109,7 +109,11 @@ public class KmsLocalCache {
             return encryptedContentMD5;
         }
         
-        
-        
+        @Override
+        public String toString() {
+            return "LocalCacheItem{" + "encryptedDataKey='" + encryptedDataKey + '\'' + ", encryptedContent='"
+                    + encryptedContent + '\'' + ", encryptedContentMD5='" + encryptedContentMD5 + '\''
+                    + ", plainDataKey='" + plainDataKey + '\'' + ", plainContent='" + plainContent + '\'' + '}';
+        }
     }
 }

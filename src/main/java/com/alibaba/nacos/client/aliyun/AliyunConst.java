@@ -1,5 +1,7 @@
 package com.alibaba.nacos.client.aliyun;
 
+import java.nio.charset.StandardCharsets;
+
 /**
  * the Const Values of Aliyun.
  *
@@ -25,7 +27,9 @@ public class AliyunConst {
     
     public static final String KMS_KEY_SPEC_AES_256 = "AES_256";
     
-    public static final String ENCODE_UTF8 = "UTF-8";
+    public static final String ENCODE_UTF8 = StandardCharsets.UTF_8.displayName();
+    
+    public static final String ENCODE_UTF16 = StandardCharsets.UTF_16.displayName();
     
     public static final String KMS_ENDPOINT = "kmsEndpoint";
 
