@@ -108,19 +108,19 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         }
 
         //keyId corresponding to the id/alias of KMS's secret key, using mseServiceKeyId by default
-        keyId = properties.getProperty(KEY_ID, System.getProperty(KEY_ID, System.getenv(KEY_ID)));
-        if (StringUtils.isBlank(keyId)) {
-            if (kmsVersion == AliyunConst.KmsVersion.Kmsv1) {
-                keyId = AliyunConst.KMS_DEFAULT_KEY_ID_VALUE;
-                LOGGER.info("using default keyId {}.", keyId);
-            } else {
+        if (kmsVersion == AliyunConst.KmsVersion.Kmsv1) {
+            keyId = AliyunConst.KMS_DEFAULT_KEY_ID_VALUE;
+            LOGGER.info("using default keyId {}.", keyId);
+        } else if(kmsVersion == AliyunConst.KmsVersion.Kmsv3) {
+            keyId = properties.getProperty(KEY_ID, System.getProperty(KEY_ID, System.getenv(KEY_ID)));
+            if (StringUtils.isBlank(keyId)) {
                 String errorMsg = "keyId is not set up yet, unable to encrypt the configuration.";
                 localInitException = new RuntimeException(errorMsg);
                 LOGGER.error(AliyunConst.formatHelpMessage(errorMsg), localInitException);
                 return;
+            } else {
+                LOGGER.info("using keyId {}.", keyId);
             }
-        } else {
-            LOGGER.info("using keyId {}.", keyId);
         }
         
         this.isUseLocalCache = KmsUtils.parsePropertyValue(properties, AliyunConst.NACOS_CONFIG_ENCRYPTION_KMS_LOCAL_CACHE_SWITCH,
