@@ -108,19 +108,19 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         }
 
         //keyId corresponding to the id/alias of KMS's secret key, using mseServiceKeyId by default
-        keyId = properties.getProperty(KEY_ID, System.getProperty(KEY_ID, System.getenv(KEY_ID)));
-        if (StringUtils.isBlank(keyId)) {
-            if (kmsVersion == AliyunConst.KmsVersion.Kmsv1) {
-                keyId = AliyunConst.KMS_DEFAULT_KEY_ID_VALUE;
-                LOGGER.info("using default keyId {}.", keyId);
-            } else {
+        if (kmsVersion == AliyunConst.KmsVersion.Kmsv1) {
+            keyId = AliyunConst.KMS_DEFAULT_KEY_ID_VALUE;
+            LOGGER.info("using default keyId {}.", keyId);
+        } else if(kmsVersion == AliyunConst.KmsVersion.Kmsv3) {
+            keyId = properties.getProperty(KEY_ID, System.getProperty(KEY_ID, System.getenv(KEY_ID)));
+            if (StringUtils.isBlank(keyId)) {
                 String errorMsg = "keyId is not set up yet, unable to encrypt the configuration.";
                 localInitException = new RuntimeException(errorMsg);
                 LOGGER.error(AliyunConst.formatHelpMessage(errorMsg), localInitException);
                 return;
+            } else {
+                LOGGER.info("using keyId {}.", keyId);
             }
-        } else {
-            LOGGER.info("using keyId {}.", keyId);
         }
         
         this.isUseLocalCache = KmsUtils.parsePropertyValue(properties, AliyunConst.NACOS_CONFIG_ENCRYPTION_KMS_LOCAL_CACHE_SWITCH,
@@ -190,12 +190,12 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         String secretKey = properties.getProperty(PropertyKeyConst.SECRET_KEY,
                 System.getProperty(PropertyKeyConst.SECRET_KEY, System.getenv(PropertyKeyConst.SECRET_KEY)));
 
-        String kmsEndpoint = properties.getProperty(AliyunConst.KMS_ENDPOINT,
-                System.getProperty(AliyunConst.KMS_ENDPOINT, System.getenv(AliyunConst.KMS_ENDPOINT)));
-        if (!StringUtils.isBlank(kmsEndpoint)) {
-            DefaultProfile.addEndpoint(regionId, "kms", kmsEndpoint);
-        }
-        LOGGER.info("using kmsEndpoint {}.", kmsEndpoint);
+//        String kmsEndpoint = properties.getProperty(AliyunConst.KMS_ENDPOINT,
+//                System.getProperty(AliyunConst.KMS_ENDPOINT, System.getenv(AliyunConst.KMS_ENDPOINT)));
+//        if (!StringUtils.isBlank(kmsEndpoint)) {
+//            DefaultProfile.addEndpoint(regionId, "kms", kmsEndpoint);
+//        }
+//        LOGGER.info("using kmsEndpoint {}.", kmsEndpoint);
 
         IClientProfile profile = null;
         IAcsClient kmsClient = null;
@@ -502,12 +502,11 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         locallyRunWithRetryTimesAndTimeout(() -> {
             try {
                 resultContent.set(kmsClient.getAcsResponse(decReq).getPlaintext());
-            } catch (ClientException e) {
-                //some exception need to return false to retry
-                if (KmsUtils.judgeNeedRecoveryException(e)) {
-                    return false;
-                }
+            } catch (Exception e) {
                 throw new RuntimeException(e);
+            }
+            if (StringUtils.isBlank(resultContent.get())) {
+                return false;
             }
             return true;
         }, defaultRetryTimes, defaultTimeoutMilliseconds);
@@ -525,12 +524,11 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         locallyRunWithRetryTimesAndTimeout(() -> {
             try {
                 resultContent.set( kmsClient.getAcsResponse(encReq).getCiphertextBlob());
-            } catch (ClientException e) {
-                //some exception need to return false to retry
-                if (KmsUtils.judgeNeedRecoveryException(e)) {
-                    return false;
-                }
+            } catch (Exception e) {
                 throw new RuntimeException(e);
+            }
+            if (StringUtils.isBlank(resultContent.get())) {
+                return false;
             }
             return true;
         
@@ -547,12 +545,11 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         locallyRunWithRetryTimesAndTimeout(() -> {
             try {
                 resultContent.set(kmsClient.getAcsResponse(generateDataKeyRequest));
-            } catch (ClientException e) {
-                //some exception need to return false to retry
-                if (KmsUtils.judgeNeedRecoveryException(e)) {
-                    return false;
-                }
+            } catch (Exception e) {
                 throw new RuntimeException(e);
+            }
+            if (resultContent.get() == null) {
+                return false;
             }
             return true;
         }, defaultRetryTimes, defaultTimeoutMilliseconds);
@@ -617,12 +614,28 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
     private static void locallyRunWithRetryTimesAndTimeout(Supplier<Boolean> runnable, int retryTimes, long timeout)
             throws Exception {
         int locallyRetryTimes = 0;
+        Exception localException = null;
         long beginTime = System.currentTimeMillis();
         while (locallyRetryTimes++ < retryTimes && System.currentTimeMillis() < beginTime + timeout) {
-            if (runnable.get()) {
-                break;
+            try {
+                if (runnable.get()) {
+                    break;
+                }
+            } catch (Exception e) {
+                localException = e;
             }
-            Thread.sleep(defaultRetryIntervalMilliseconds);
+            if (localException == null
+                    || (localException != null
+                        && (localException instanceof ClientException)
+                        && KmsUtils.judgeNeedRecoveryException((ClientException) localException))) {
+                //some exception need to retry
+                Thread.sleep(defaultRetryIntervalMilliseconds);
+            } else {
+                throw localException;
+            }
+        }
+        if (localException != null) {
+            throw localException;
         }
     }
 
