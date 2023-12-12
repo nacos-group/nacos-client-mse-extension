@@ -45,7 +45,6 @@ public class AliyunConfigFilterTest {
     public static final String ak = "LTAIxxx";
     
     public static final String sk = "EdPqxxx";
-t
     @BeforeEach
     public void preset() {
         try {
