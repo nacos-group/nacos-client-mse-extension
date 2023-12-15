@@ -497,7 +497,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         final DecryptRequest decReq = new DecryptRequest();
         decReq.setSysProtocol(ProtocolType.HTTPS);
         decReq.setSysMethod(MethodType.POST);
-        decReq.setAcceptFormat(FormatType.JSON);
+        decReq.setAcceptFormat(FormatType.XML);
         decReq.setCiphertextBlob(content);
         locallyRunWithRetryTimesAndTimeout(() -> {
             try {
@@ -517,7 +517,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
         AtomicReference<String> resultContent = new AtomicReference<>();
         final EncryptRequest encReq = new EncryptRequest();
         encReq.setProtocol(ProtocolType.HTTPS);
-        encReq.setAcceptFormat(FormatType.JSON);
+        encReq.setAcceptFormat(FormatType.XML);
         encReq.setMethod(MethodType.POST);
         encReq.setKeyId(keyId);
         encReq.setPlaintext(plainText);
@@ -538,7 +538,7 @@ public class AliyunConfigFilter extends AbstractConfigFilter {
 
     public GenerateDataKeyResponse generateDataKey(String keyId, String keySpec) throws Exception {
         GenerateDataKeyRequest generateDataKeyRequest = new GenerateDataKeyRequest();
-        generateDataKeyRequest.setAcceptFormat(FormatType.JSON);
+        generateDataKeyRequest.setAcceptFormat(FormatType.XML);
         generateDataKeyRequest.setKeyId(keyId);
         generateDataKeyRequest.setKeySpec(keySpec);
         AtomicReference<GenerateDataKeyResponse> resultContent = new AtomicReference<>();
