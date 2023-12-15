@@ -38,7 +38,7 @@ public class AliyunConfigFilterTest {
         add("cipher-kms-aes-128-crypt");
     }};
 
-    public static final String content = "crypt";
+    public static final String content = "crypt中文&&";
 
     public static final String group = "default";
     
