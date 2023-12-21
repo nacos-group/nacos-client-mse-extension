@@ -30,6 +30,15 @@
                 <role>Developer</role>
             </roles>
         </developer>
+        <developer>
+            <id>robynron</id>
+            <name>Rong Liu</name>
+            <email>liurong.liu@alibaba-inc.com</email>
+            <url>https://github.com/robynron</url>
+            <roles>
+                <role>Developer</role>
+            </roles>
+        </developer>
     </developers>
     <licenses>
         <license>
