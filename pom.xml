@@ -17,7 +17,7 @@
     <inceptionYear>2018</inceptionYear>
     <groupId>com.alibaba.nacos</groupId>
     <artifactId>nacos-client-mse-extension</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.4-beta</version>
     <packaging>jar</packaging>
     
     <developers>
@@ -26,6 +26,15 @@
             <name>Jack Sun</name>
             <email>sunwardgo@gmail.com</email>
             <url>https://github.com/realJackSun</url>
+            <roles>
+                <role>Developer</role>
+            </roles>
+        </developer>
+        <developer>
+            <id>robynron</id>
+            <name>Rong Liu</name>
+            <email>liurong.liu@alibaba-inc.com</email>
+            <url>https://github.com/robynron</url>
             <roles>
                 <role>Developer</role>
             </roles>
