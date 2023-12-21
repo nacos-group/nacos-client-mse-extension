@@ -17,7 +17,7 @@
     <inceptionYear>2018</inceptionYear>
     <groupId>com.alibaba.nacos</groupId>
     <artifactId>nacos-client-mse-extension</artifactId>
-    <version>1.0.4-beta</version>
+    <version>1.0.4</version>
     <packaging>jar</packaging>
     
     <developers>
