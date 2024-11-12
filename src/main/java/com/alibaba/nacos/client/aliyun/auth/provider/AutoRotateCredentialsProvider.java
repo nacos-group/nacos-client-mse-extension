@@ -35,10 +35,16 @@ public class AutoRotateCredentialsProvider implements ExtensionCredentialsProvid
     
     @Override
     public void init(Properties properties) {
+        secretName = getNacosProperties(properties, ExtensionAuthPropertyKey.SECRET_NAME);
+        signatureRegionId = getSignatureRegionId(properties);
+        buildSecretClient();
+    }
+    
+    private synchronized void buildSecretClient() {
         try {
-            secretName = getNacosProperties(properties, ExtensionAuthPropertyKey.SECRET_NAME);
-            signatureRegionId = getSignatureRegionId(properties);
-            client = SecretCacheClientBuilder.newClient();
+            if (null == client) {
+                client = SecretCacheClientBuilder.newClient();
+            }
         } catch (CacheSecretException e) {
             throw new NacosRuntimeException(ErrorCode.ILLEGAL_STATE.getCode(), e.getMessage(), e);
         }
