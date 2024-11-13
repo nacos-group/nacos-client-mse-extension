@@ -10,6 +10,7 @@ import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.kms.model.v20160120.GenerateDataKeyResponse;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -28,6 +29,7 @@ import static com.alibaba.nacos.client.aliyun.AliyunConst.ENCODE_UTF8;
 import static com.alibaba.nacos.client.aliyun.AliyunConst.KMS_DEFAULT_KEY_ID_VALUE;
 import static com.alibaba.nacos.client.aliyun.AliyunConst.KMS_KEY_SPEC_AES_256;
 
+@Disabled("This unit test depend accessKey to request KMS, default disabled")
 public class AliyunConfigFilterTest {
     private static final String ENCRYPTED_DATA_KEY = "encryptedDataKey";
     private static final String CONTENT = "content";

@@ -1,6 +1,5 @@
 package com.alibaba.nacos.client.aliyun.auth.provider;
 
-import com.alibaba.nacos.api.PropertyKeyConst;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.client.aliyun.auth.ExtensionAuthPropertyKey;
 import com.alibaba.nacos.client.aliyun.auth.ExtensionRamContext;

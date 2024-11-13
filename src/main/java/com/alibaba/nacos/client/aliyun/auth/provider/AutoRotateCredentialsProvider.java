@@ -45,7 +45,7 @@ public class AutoRotateCredentialsProvider implements ExtensionCredentialsProvid
             if (null == client) {
                 client = SecretCacheClientBuilder.newClient();
             }
-        } catch (CacheSecretException e) {
+        } catch (Exception e) {
             throw new NacosRuntimeException(ErrorCode.ILLEGAL_STATE.getCode(), e.getMessage(), e);
         }
     }

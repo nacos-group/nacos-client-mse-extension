@@ -22,10 +22,6 @@ public abstract class AbstractCredentialClientProvider implements ExtensionCrede
     
     private String signatureRegionId;
     
-    public Client getCredentialsClient() {
-        return credentialsClient;
-    }
-    
     @Override
     public void init(Properties properties) {
         synchronized (this) {
@@ -47,9 +43,9 @@ public abstract class AbstractCredentialClientProvider implements ExtensionCrede
     
     @Override
     public ExtensionRamContext getCredentialsForNacosClient() {
-        CredentialModel credentialModel = credentialsClient.getCredential();
         ExtensionRamContext ramContext = new ExtensionRamContext();
         if (null != credentialsClient) {
+            CredentialModel credentialModel = credentialsClient.getCredential();
             ramContext.setAccessKey(credentialModel.getAccessKeyId());
             ramContext.setSecretKey(credentialModel.getAccessKeySecret());
             ramContext.setSecurityToken(credentialModel.getSecurityToken());
