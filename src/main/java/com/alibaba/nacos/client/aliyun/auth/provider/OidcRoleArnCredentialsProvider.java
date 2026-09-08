@@ -30,6 +30,10 @@ public class OidcRoleArnCredentialsProvider extends AbstractCredentialClientProv
         config.setRoleSessionName(getNacosProperties(properties, ExtensionAuthPropertyKey.ROLE_SESSION_NAME));
         config.setOidcProviderArn(getNacosProperties(properties, ExtensionAuthPropertyKey.OIDC_PROVIDER_ARN));
         config.setOidcTokenFilePath(getNacosProperties(properties, ExtensionAuthPropertyKey.OIDC_TOKEN_FILE_PATH));
+        String stsEndpoint = getNacosProperties(properties, ExtensionAuthPropertyKey.STS_ENDPOINT);
+        if (!StringUtils.isBlank(stsEndpoint)) {
+            config.setSTSEndpoint(stsEndpoint);
+        }
         return injectCommonBasicConfig(properties, config);
     }
 }
