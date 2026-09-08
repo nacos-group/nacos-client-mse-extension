@@ -43,6 +43,8 @@ public class ExtensionAuthConstants {
     
     public static final String ACCESS_KEY_ID_KEY = PREFIX + "AccessKeyId";
     
+    public static final String STS_ENDPOINT_KEY = PREFIX + "StsEndpoint";
+    
     /**
      * Env properties keys.
      */
@@ -71,4 +73,6 @@ public class ExtensionAuthConstants {
     public static final String ENV_CREDENTIALS_URI_KEY = ENV_PREFIX + "CREDENTIALS_URI";
     
     public static final String ENV_SECRET_NAME_KEY = ENV_PREFIX + "SECRET_NAME";
+    
+    public static final String ENV_STS_ENDPOINT = ENV_PREFIX + "STS_ENDPOINT";
 }

@@ -32,7 +32,9 @@ public enum ExtensionAuthPropertyKey {
     
     CREDENTIALS_URI(ExtensionAuthConstants.CREDENTIALS_URI_KEY, ExtensionAuthConstants.ENV_CREDENTIALS_URI_KEY),
     
-    SECRET_NAME(ExtensionAuthConstants.SECRET_NAME_KEY, ExtensionAuthConstants.ENV_SECRET_NAME_KEY);
+    SECRET_NAME(ExtensionAuthConstants.SECRET_NAME_KEY, ExtensionAuthConstants.ENV_SECRET_NAME_KEY),
+    
+    STS_ENDPOINT(ExtensionAuthConstants.STS_ENDPOINT_KEY, ExtensionAuthConstants.ENV_STS_ENDPOINT);
     
     private final String key;
     

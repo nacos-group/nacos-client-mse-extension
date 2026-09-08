@@ -58,4 +58,12 @@ class OidcRoleArnCredentialsProviderTest extends AbstractCredentialClientProvide
         assertNull(config.getPolicy());
         assertEquals(3600, config.getRoleSessionExpiration());
     }
+    
+    @Test
+    void generateCredentialsConfigWithStsEndpoint() {
+        initWithEnvProperties();
+        properties.setProperty(ExtensionAuthPropertyKey.STS_ENDPOINT.getEnvKey(), "sts.cn-hangzhou.aliyuncs.com");
+        Config config = getCredentialsProvider().generateCredentialsConfig(properties);
+        assertEquals("sts.cn-hangzhou.aliyuncs.com", config.getSTSEndpoint());
+    }
 }
